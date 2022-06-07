@@ -183,7 +183,7 @@ class TestIfgPart(UnitTestAdaptation):
 
     def setup_method(self):
         self.ifgs = small_data_setup()
-        self.params = Configuration(common.TEST_CONF_ROIPAC).__dict__
+        self.params = Configuration(common.TEST_CONF_ROIPAC)
 
     def test_ifg_part_shape_and_slice(self):
         r_start = 0
@@ -212,11 +212,11 @@ class TestMSTFilesReusedFromDisc:
     @classmethod
     def setup_class(cls):
         cls.conf = TEST_CONF_GAMMA
-        cls.params = Configuration(cls.conf).__dict__
+        cls.params = Configuration(cls.conf)
         conv2tif.main(cls.params)
-        cls.params = Configuration(cls.conf).__dict__
+        cls.params = Configuration(cls.conf)
         prepifg.main(cls.params)
-        cls.params = Configuration(cls.conf).__dict__
+        cls.params = Configuration(cls.conf)
         multi_paths = cls.params[C.INTERFEROGRAM_FILES]
         cls.ifg_paths = [p.tmp_sampled_path for p in multi_paths]
 
@@ -226,7 +226,7 @@ class TestMSTFilesReusedFromDisc:
 
     def test_mst_used_from_disc_on_rerun(self):
         correct._copy_mlooked(self.params)
-        correct._update_params_with_tiles(self.params)
+        correct.update_params_with_tiles(self.params)
         times_written = self.__run_once()
         times_written_1 = self.__run_once()
 
@@ -236,7 +236,7 @@ class TestMSTFilesReusedFromDisc:
         tiles = self.params[C.TILES]
         mst_files = [Configuration.mst_path(self.params, t.index) for t in tiles]
         correct._copy_mlooked(self.params)
-        correct._create_ifg_dict(self.params)
+        correct.create_ifg_dict(self.params)
         save_numpy_phase(self.ifg_paths, self.params)
         mst.mst_calc_wrapper(self.params)
         assert all(m.exists() for m in mst_files)

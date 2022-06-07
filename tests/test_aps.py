@@ -173,14 +173,14 @@ class TestAPSErrorCorrectionsOnDiscReused:
     @classmethod
     def setup_method(cls):
         cls.conf = common.TEST_CONF_GAMMA
-        params = Configuration(cls.conf).__dict__
+        params = Configuration(cls.conf)
         conv2tif.main(params)
-        params = Configuration(cls.conf).__dict__
+        params = Configuration(cls.conf)
         prepifg.main(params)
-        cls.params = Configuration(cls.conf).__dict__
+        cls.params = Configuration(cls.conf)
         correct._copy_mlooked(cls.params)
-        correct._update_params_with_tiles(cls.params)
-        correct._create_ifg_dict(cls.params)
+        correct.update_params_with_tiles(cls.params)
+        correct.create_ifg_dict(cls.params)
         multi_paths = cls.params[C.INTERFEROGRAM_FILES]
         cls.ifg_paths = [p.tmp_sampled_path for p in multi_paths]
         cls.ifgs = [shared.Ifg(i) for i in cls.ifg_paths]

@@ -598,7 +598,7 @@ working_dirs = {
 
 
 def manipulate_test_conf(conf_file, work_dir: Path):
-    params = Configuration(conf_file).__dict__
+    params = Configuration(conf_file)
     if conf_file == MEXICO_CROPA_CONF:
         copytree(MEXICO_CROPA_DIR, work_dir)
         copytree(MEXICO_CROPA_DIR_HEADERS, work_dir)

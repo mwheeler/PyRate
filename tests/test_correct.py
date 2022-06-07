@@ -28,7 +28,7 @@ from tests import common
 
 def test_unsupported_process_steps_raises(gamma_conf):
     config = Configuration(gamma_conf)
-    gamma_params = config.__dict__
+    gamma_params = config
     gamma_params['correct'] = ['orbfit2', 'something_other_step']
     with pytest.raises(ConfigException):
         correct.correct_ifgs(config)
@@ -50,7 +50,7 @@ def test_process_treats_prepif_outputs_readonly(gamma_conf, tempdir, coh_mask):
     params[C.PARALLEL] = 0
     output_conf = tdir.joinpath('conf.cfg')
     write_config_file(params=params, output_conf_file=output_conf)
-    params = Configuration(output_conf).__dict__
+    params = Configuration(output_conf)
     conv2tif.main(params)
     tifs = list(Path(params[C.INTERFEROGRAM_DIR]).glob('*_unw.tif'))
     assert len(tifs) == 17
@@ -59,7 +59,7 @@ def test_process_treats_prepif_outputs_readonly(gamma_conf, tempdir, coh_mask):
         coh_tifs = list(Path(params[C.COHERENCE_DIR]).glob('*_cc.tif'))
         assert len(coh_tifs) == 17
 
-    params = Configuration(output_conf).__dict__
+    params = Configuration(output_conf)
     prepifg.main(params)
     cropped_coh = list(Path(params[C.COHERENCE_DIR]).glob('*_coh.tif'))
     cropped_ifgs = list(Path(params[C.INTERFEROGRAM_DIR]).glob('*_ifg.tif'))

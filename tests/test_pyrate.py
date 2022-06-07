@@ -132,7 +132,7 @@ class TestPyRate:
                 os.chmod(dest, 0o660)
 
             config = Configuration(common.TEST_CONF_ROIPAC)
-            params = config.__dict__
+            params = config
             params['correct'] = ['orbfit', 'refphase', 'mst', 'apscorrect', 'maxvar']
             params[C.OUT_DIR] = cls.BASE_OUT_DIR
             params[C.PROCESSOR] = 0  # roipac
@@ -226,7 +226,7 @@ class TestParallelPyRate:
         pyrate.configuration.write_config_file(params=params, output_conf_file=output_conf)
 
         config = Configuration(output_conf)
-        params = config.__dict__
+        params = config
 
         common.sub_process_run(f"pyrate conv2tif -f {output_conf}")
         common.sub_process_run(f"pyrate prepifg -f {output_conf}")
@@ -261,7 +261,7 @@ class TestParallelPyRate:
         output_conf = cls.tif_dir_s.joinpath(output_conf_file).as_posix()
         pyrate.configuration.write_config_file(params=params, output_conf_file=output_conf)
         config = Configuration(output_conf)
-        params = config.__dict__
+        params = config
 
         common.sub_process_run(f"pyrate conv2tif -f {output_conf}")
         common.sub_process_run(f"pyrate prepifg -f {output_conf}")
@@ -332,7 +332,7 @@ class TestPrePrepareIfgs:
 
     @classmethod
     def setup_class(cls):
-        params = Configuration(common.TEST_CONF_ROIPAC).__dict__
+        params = Configuration(common.TEST_CONF_ROIPAC)
         cls.tmp_dir = tempfile.mkdtemp()
         common.copytree(common.SML_TEST_TIF, cls.tmp_dir)
         tifs = glob.glob(os.path.join(cls.tmp_dir, "*.tif"))

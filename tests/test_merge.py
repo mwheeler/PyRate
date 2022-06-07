@@ -85,7 +85,7 @@ class TestLOSConversion:
         check_call(f"mpirun -n 3 pyrate timeseries -f {output_conf}", shell=True)
         check_call(f"mpirun -n 3 pyrate stack -f {output_conf}", shell=True)
 
-        params = Configuration(output_conf).__dict__
+        params = Configuration(output_conf)
         cls.params = params
         cls.tdir = tdir
 

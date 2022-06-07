@@ -114,7 +114,7 @@ class TestLegacyTimeSeriesEquality:
 
     @classmethod
     def setup_class(cls):
-        params = Configuration(common.TEST_CONF_ROIPAC).__dict__
+        params = Configuration(common.TEST_CONF_ROIPAC)
         params[C.TEMP_MLOOKED_DIR] = os.path.join(params[C.OUT_DIR],
                                                                  C.TEMP_MLOOKED_DIR)
         conv2tif.main(params)
@@ -141,7 +141,7 @@ class TestLegacyTimeSeriesEquality:
         ifgs = common.prepare_ifgs_without_phase(copied_dest_paths, params)
         for ifg in ifgs:
             ifg.close()
-        correct._update_params_with_tiles(params)
+        correct.update_params_with_tiles(params)
         _, ifgs = pyrate.core.ref_phs_est.ref_phase_est_wrapper(params)
         ifgs[0].open()
         r_dist = covariance.RDist(ifgs[0])()
@@ -215,7 +215,7 @@ class TestLegacyTimeSeriesEqualityMethod2Interp0:
 
     @classmethod
     def setup_class(cls):
-        params = Configuration(common.TEST_CONF_ROIPAC).__dict__
+        params = Configuration(common.TEST_CONF_ROIPAC)
         params[C.TEMP_MLOOKED_DIR] = os.path.join(params[C.OUT_DIR],
                                                                  C.TEMP_MLOOKED_DIR)
         conv2tif.main(params)
@@ -244,7 +244,7 @@ class TestLegacyTimeSeriesEqualityMethod2Interp0:
         for ifg in ifgs:
             ifg.close()
 
-        correct._update_params_with_tiles(params)
+        correct.update_params_with_tiles(params)
         _, ifgs = pyrate.core.ref_phs_est.ref_phase_est_wrapper(params)
         ifgs[0].open()
         r_dist = covariance.RDist(ifgs[0])()

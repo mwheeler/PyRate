@@ -39,7 +39,7 @@ from tests.test_covariance import legacy_maxvar
 @pytest.mark.mpi
 def test_vcm_legacy_vs_mpi(mpisync, tempdir, roipac_or_gamma_conf):
 
-    params = configuration.Configuration(roipac_or_gamma_conf).__dict__
+    params = configuration.Configuration(roipac_or_gamma_conf)
     LEGACY_VCM_DIR = os.path.join(SML_TEST_DIR, 'vcm')
     legacy_vcm = np.genfromtxt(os.path.join(LEGACY_VCM_DIR, 'vcmt.csv'), delimiter=',')
     tmpdir = Path(mpiops.run_once(tempdir))
@@ -47,18 +47,18 @@ def test_vcm_legacy_vs_mpi(mpisync, tempdir, roipac_or_gamma_conf):
     params[C.PARALLEL] = 0
     output_conf = Path(tmpdir).joinpath('conf.cfg')
     pyrate.configuration.write_config_file(params=params, output_conf_file=output_conf)
-    params = configuration.Configuration(output_conf).__dict__
+    params = configuration.Configuration(output_conf)
 
     # dest_paths = [p.sampled_path for p in params[cf.INTERFEROGRAM_FILES]]
     # run conv2tif and prepifg, create the dest_paths files
     conv2tif.main(params)
-    params = configuration.Configuration(output_conf).__dict__
+    params = configuration.Configuration(output_conf)
     prepifg.main(params)
-    params = configuration.Configuration(output_conf).__dict__
+    params = configuration.Configuration(output_conf)
     params[C.ORBFIT_OFFSET] = True
     correct._copy_mlooked(params=params)
-    correct._update_params_with_tiles(params)
-    correct._create_ifg_dict(params=params)
+    correct.update_params_with_tiles(params)
+    correct.create_ifg_dict(params=params)
     pyrate.core.refpixel.ref_pixel_calc_wrapper(params)
     pyrate.core.orbital.orb_fit_calc_wrapper(params)
     pyrate.core.ref_phs_est.ref_phase_est_wrapper(params)

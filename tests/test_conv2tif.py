@@ -50,7 +50,7 @@ def test_conv2tif_file_types(tempdir, gamma_conf):
     output_conf_file = 'conf.conf'
     output_conf = tdir.joinpath(output_conf_file)
     pyrate.configuration.write_config_file(params=params, output_conf_file=output_conf)
-    params_s = configuration.Configuration(output_conf).__dict__
+    params_s = configuration.Configuration(output_conf)
     conv2tif.main(params_s)
     ifg_files = list(Path(tdir.joinpath(params_s[C.OUT_DIR])).glob('*_ifg.tif'))
     coh_files = list(Path(tdir.joinpath(params_s[C.OUT_DIR])).glob('*_coh.tif'))

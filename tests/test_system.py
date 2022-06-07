@@ -42,7 +42,7 @@ def test_workflow(system_conf):
     check_call(f"mpirun -n 3 pyrate merge -f {system_conf}", shell=True)
 
     # assert logs generated in the outdir
-    params = Configuration(system_conf).__dict__
+    params = Configuration(system_conf)
     for stage in ['conv2tif', 'prepifg', 'correct', 'timeseries', 'stack', 'merge']:
         log_file_name = 'pyrate.log.' + stage
         files = list(Path(params[C.OUT_DIR]).glob(log_file_name + '.*'))
@@ -56,7 +56,7 @@ def test_single_workflow(pytestconfig, gamma_or_mexicoa_conf):
     else:
         check_call(f"pyrate workflow -f {gamma_or_mexicoa_conf}", shell=True)
 
-    params = Configuration(gamma_or_mexicoa_conf).__dict__
+    params = Configuration(gamma_or_mexicoa_conf)
 
     log_file_name = 'pyrate.log.' + 'workflow'
     files = list(Path(params[C.OUT_DIR]).glob(log_file_name + '.*'))

@@ -31,7 +31,7 @@ class TestPyRateGammaBperp:
 
     @classmethod
     def setup_class(cls):
-        cls.params = Configuration(common.MEXICO_CROPA_CONF).__dict__
+        cls.params = Configuration(common.MEXICO_CROPA_CONF)
         # run prepifg
         prepifg.main(cls.params)
         # copy IFGs to temp folder
@@ -147,9 +147,9 @@ class TestDEMErrorFilesReusedFromDisc:
     @classmethod
     def setup_class(cls):
         cls.conf = common.MEXICO_CROPA_CONF
-        cls.params = Configuration(cls.conf).__dict__
+        cls.params = Configuration(cls.conf)
         prepifg.main(cls.params)
-        cls.params = Configuration(cls.conf).__dict__
+        cls.params = Configuration(cls.conf)
         multi_paths = cls.params[C.INTERFEROGRAM_FILES]
         cls.ifg_paths = [p.tmp_sampled_path for p in multi_paths]
 
@@ -159,7 +159,7 @@ class TestDEMErrorFilesReusedFromDisc:
 
     def test_dem_error_used_from_disc_on_rerun(self):
         correct._copy_mlooked(self.params)
-        correct._update_params_with_tiles(self.params)
+        correct.update_params_with_tiles(self.params)
         times_written = self.__run_once()
         assert len(times_written) == len(self.ifg_paths)
         times_written_1 = self.__run_once()
@@ -168,8 +168,8 @@ class TestDEMErrorFilesReusedFromDisc:
     def __run_once(self):
         dem_files = [MultiplePaths.dem_error_path(i, self.params) for i in self.ifg_paths]
         correct._copy_mlooked(self.params)
-        correct._update_params_with_tiles(self.params)
-        correct._create_ifg_dict(self.params)
+        correct.update_params_with_tiles(self.params)
+        correct.create_ifg_dict(self.params)
         save_numpy_phase(self.ifg_paths, self.params)
         dem_error_calc_wrapper(self.params)
         assert all(m.exists() for m in dem_files)
@@ -181,9 +181,9 @@ class TestDEMErrorResults:
     @classmethod
     def setup_class(cls):
         cls.conf = common.MEXICO_CROPA_CONF
-        cls.params = Configuration(cls.conf).__dict__
+        cls.params = Configuration(cls.conf)
         prepifg.main(cls.params)
-        cls.params = Configuration(cls.conf).__dict__
+        cls.params = Configuration(cls.conf)
         multi_paths = cls.params[C.INTERFEROGRAM_FILES]
         cls.ifg_paths = [p.tmp_sampled_path for p in multi_paths]
         cls.params[C.REFX_FOUND] = 8  # this is the pixel of the location given in the pyrate_mexico_cropa.conf file
@@ -203,8 +203,8 @@ class TestDEMErrorResults:
         dem_error_exp = dem.data
         # run relevant parts of the 'correct' step
         correct._copy_mlooked(self.params)
-        correct._update_params_with_tiles(self.params)
-        correct._create_ifg_dict(self.params)
+        correct.update_params_with_tiles(self.params)
+        correct.create_ifg_dict(self.params)
         save_numpy_phase(self.ifg_paths, self.params)
         # subtract the reference phase to enable comparison with a 'normal' pyrate run
         ref_phase_est_wrapper(self.params)

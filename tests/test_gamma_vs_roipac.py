@@ -73,7 +73,7 @@ def __workflow(params, tdir):
     params[C.TMPDIR] = tdir.joinpath(Path(params[C.TMPDIR]).name).as_posix()
     output_conf = tdir.joinpath('roipac_temp.conf')
     pyrate.configuration.write_config_file(params=params, output_conf_file=output_conf)
-    params = configuration.Configuration(output_conf).__dict__
+    params = configuration.Configuration(output_conf)
     conv2tif.main(params)
     prepifg.main(params)
     params[WORKING_DIR] = tdir.as_posix()

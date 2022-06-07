@@ -121,7 +121,8 @@ def __drop_ifgs_exceeding_threshold(
 
 
 def iterative_closure_check(
-    config, interactive_plot=True
+    config: Configuration,
+    interactive_plot = True
 ) -> Tuple[List[str], NDArray[(Any, Any, Any), UInt16], NDArray[(Any,), UInt16]]:
     """
     This function iterates the closure check until a stable list of interferogram files is returned.
@@ -130,7 +131,8 @@ def iterative_closure_check(
     :return: stable list of ifg files, their ifgs_breach_count, and
         number of occurrences of ifgs in loops
     """
-    params = config.__dict__
+    # TEMP HACK: Eventually this module needs to be migrated to using Configuration directly.
+    params = config
     ifg_files = [ifg_path.tmp_sampled_path for ifg_path in params[C.INTERFEROGRAM_FILES]]
     i = 1  # iteration counter
 
@@ -198,7 +200,8 @@ def __wrap_closure_check(config: Configuration) -> \
     :param config: Configuration class instance
     For return variables see docstring in `sum_phase_closures`.
     """
-    params = config.__dict__
+    # TEMP HACK: Eventually this module needs to be migrated to using Configuration directly.
+    params = config
     ifg_files = [ifg_path.tmp_sampled_path for ifg_path in params[C.INTERFEROGRAM_FILES]]
     ifg_files.sort()
     log.debug(f"The number of ifgs in the list is {len(ifg_files)}")

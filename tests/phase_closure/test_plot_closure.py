@@ -45,14 +45,14 @@ steps = ['orbfit',  'refphase',  'phase_closure']
                     reason='skipped as plotting packages are missing')
 def test_plot_closure(mexico_cropa_params):
     config = Configuration(MEXICO_CROPA_CONF)
-    params = config.__dict__
+    params = config
     check_call(f"mpirun -n 3 pyrate prepifg -f {MEXICO_CROPA_CONF}", shell=True)
 
     correct._copy_mlooked(params)
     correct.__validate_correct_steps(params)
     # house keeping
-    correct._update_params_with_tiles(params)
-    correct._create_ifg_dict(params)
+    correct.update_params_with_tiles(params)
+    correct.create_ifg_dict(params)
     params[C.REFX_FOUND], params[C.REFY_FOUND] = correct.ref_pixel_calc_wrapper(params)
 
     # run through the correct steps in user specified sequence

@@ -41,7 +41,7 @@ from pyrate.configuration import Configuration, ConfigException
 MAIN_PROCESS = 0
 
 
-def _create_ifg_dict(params):
+def create_ifg_dict(params):
     """
     Save the preread_ifgs dict with information about the ifgs that are
     later used for fast loading of Ifg files in IfgPart class
@@ -137,7 +137,8 @@ def main(config):
     :return: vcmt: Variance-covariance matrix array
     :rtype: ndarray
     """
-    params = config.__dict__
+    # TEMP HACK: Eventually this module needs to be migrated to using Configuration directly.
+    params = config
     mpi_vs_multiprocess_logging("correct", params)
 
     _copy_mlooked(params)
@@ -145,7 +146,7 @@ def main(config):
     return correct_ifgs(config)
 
 
-def _update_params_with_tiles(params: dict) -> None:
+def update_params_with_tiles(params: dict) -> None:
     ifg_path = params[C.INTERFEROGRAM_FILES][0].tmp_sampled_path
     rows, cols = params["rows"], params["cols"]
     tiles = mpiops.run_once(get_tiles, ifg_path, rows, cols)
@@ -188,7 +189,7 @@ def phase_closure_wrapper(params: dict, config: Configuration) -> dict:
     if mpiops.rank == 0:
         mask_pixels_with_unwrapping_errors(ifgs_breach_count, num_occurences_each_ifg, params)
 
-    _create_ifg_dict(params) # update the preread_ifgs dict
+    create_ifg_dict(params) # update the preread_ifgs dict
 
     ifg_paths = [ifg_path.tmp_sampled_path for ifg_path in params[C.INTERFEROGRAM_FILES]]
     # update/save the phase_data in the tiled numpy files
@@ -212,14 +213,16 @@ def correct_ifgs(config: Configuration) -> None:
     """
     Top level function to perform PyRate workflow on given interferograms
     """
-    params = config.__dict__
+    # TEMP HACK: Eventually this module needs to be migrated to using Configuration directly.
+    params = config
+
     __validate_correct_steps(params)
 
     # work out the tiling and add to params dict
-    _update_params_with_tiles(params)
+    update_params_with_tiles(params)
 
     # create the preread_ifgs dict for use with tiled data
-    _create_ifg_dict(params)
+    create_ifg_dict(params)
 
     ifg_paths = [ifg_path.tmp_sampled_path for ifg_path in params[C.INTERFEROGRAM_FILES]]
 

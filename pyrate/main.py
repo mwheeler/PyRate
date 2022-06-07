@@ -37,16 +37,15 @@ from pyrate.core.timeseries import timeseries_calc_wrapper
 def _params_from_conf(config_file):
     config_file = os.path.abspath(config_file)
     config = Configuration(config_file)
-    params = config.__dict__
-    return params
+    return config
 
 
 def update_params_due_to_ifg_selection(config):
-    params = config.__dict__
+    params = config
     if config.phase_closure_filtered_ifgs_list(params).exists():
         params = config.refresh_ifg_list(params)
-        correct._create_ifg_dict(params)
-        correct._update_params_with_tiles(params)
+        correct.create_ifg_dict(params)
+        correct.update_params_with_tiles(params)
     return params
 
 
@@ -196,7 +195,7 @@ def main():
 
 def timeseries(config: Configuration) -> None:
     """The runner command for calculating the timeseries of a file set"""
-    params = config.__dict__
+    params = config
     mpi_vs_multiprocess_logging("timeseries", params)
     params = update_params_due_to_ifg_selection(config=config)
     timeseries_calc_wrapper(params)
@@ -204,7 +203,7 @@ def timeseries(config: Configuration) -> None:
 
 def stack(config: Configuration) -> None:
     """The runner command for stacking a set of files"""
-    params = config.__dict__
+    params = config
     mpi_vs_multiprocess_logging("stack", params)
     params = update_params_due_to_ifg_selection(config=config)
     stack_calc_wrapper(params)

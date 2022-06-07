@@ -17,6 +17,7 @@
 This Python module contains utilities to validate user input parameters
 parsed in a PyRate configuration file.
 """
+from enum import IntEnum
 import re
 from configparser import ConfigParser
 from pathlib import Path, PurePath
@@ -194,6 +195,13 @@ class MultiplePaths:
         return value
 
 
+class IfgCropOption(IntEnum):
+    """Method for cropping interferograms"""
+    INTERSECTION = 1  # 1 = minimum overlapping area (intersection)
+    UNION = 2         # 2 = maximum area (union)
+    CUSTOM = 3        # 3 = customised area
+    NONE = 4          # 4 = all ifgs already same size
+
 class Configuration:
     """
     The main configuration class for PyRate, which allows access to the values of
@@ -205,6 +213,50 @@ class Configuration:
     """
     outdir: str
     refchipsize: int
+
+    # general parameters:
+
+    #: (0/1/2); The interferogram processor used (0==ROIPAC, 1==GAMMA, 2: GEOTIF)
+    processor: int # TODO: Enum...
+
+    # FIXME: Ideally PyRate should use `Path` objects exclusively... but this is a bigger task
+    ref_pixel_file: Union[str, Path]
+    orb_error_dir: Union[str, Path]
+    dem_error_dir: Union[str, Path]
+    aps_error_dir: Union[str, Path]
+    phase_closure_dir: Union[str, Path]
+    mst_dir: Union[str, Path]
+    temp_mlooked_dir: Union[str, Path]
+    coherence_dir: Union[str, Path]
+    interferogram_dir: Union[str, Path]
+    geometry_dir: Union[str, Path]
+    timeseries_dir: Union[str, Path]
+    velocity_dir: Union[str, Path]
+
+    largetifs: bool
+
+    # FIXME: We need to proxy this w/ a python-friendly name...
+    noDataAveragingThreshold: float
+
+    cohmask: bool
+
+    # prepifg params: (TODO: Move into PrepIfgConfiguration?)
+
+    ifgcropopt: int  # TODO: Ideally this would be IfgCropOption (requires a bit of refactoring)
+    #: INT; Multi look factor for interferogram preparation in x dimension
+    ifglksx: int
+    #: INT; Multi look factor for interferogram preparation in y dimension
+    ifglksy: int
+    #: FLOAT; Coherence threshold for masking
+    cohthresh: float
+    #: FLOAT; Minimum longitude for cropping with method 3
+    ifgxfirst: float
+    #: FLOAT; Maximum longitude for cropping with method 3
+    ifgyfirst: float
+    #: FLOAT; Minimum latitude for cropping with method 3
+    ifgxlast: float
+    #: FLOAT; Maximum latitude for cropping with method 3
+    ifgylast: float
 
     # pylint: disable=invalid-name
     # JUSTIFICATION: these are long-established in the code already, out of scope to fix just yet.
@@ -388,6 +440,28 @@ class Configuration:
             if isinstance(self.__dict__[key], PurePath):
                 self.__dict__[key] = str(self.__dict__[key])
 
+    def __getitem__(self, key):
+        """
+        A simple item indexer which lets Configuration act like a dict.
+
+        This is a TEMPORARY measure, to aid in weaning the PyRate code base off of passing `params`
+        around in untyped `dict` objects, and looking them up at runtime via constant keys.
+        """
+        return self.__dict__[key]
+
+    def __setitem__(self, key, val):
+        """
+        A simple item setter which lets Configuration act like a dict.
+
+        This is a TEMPORARY measure, to aid in weaning the PyRate code base off of passing `params`
+        around in untyped `dict` objects, and looking them up at runtime via constant keys.
+        """
+        self.__dict__[key] = val
+
+    def items(self):
+        """See __getitem__ / __setitem__ on why we're trying to mimic a dict"""
+        return self.__dict__.items();
+
     @staticmethod
     def ref_pixel_path(params):
         return Path(params[C.OUT_DIR]).joinpath(
@@ -458,15 +532,13 @@ class Configuration:
 
         return Closure()
 
-    @staticmethod
-    def coherence_stats(params):
-        coh_d = Path(params[C.COHERENCE_DIR])
+    def coherence_stats(self):
+        coh_d = Path(self.coherence_dir)
         keys = [ifg.COH_MEDIAN, ifg.COH_MEAN, ifg.COH_STD]
         return { k: coh_d.joinpath(k.lower() + '.tif').as_posix() for k in keys }
 
-    @staticmethod
-    def geometry_files(params):
-        geom_dir = Path(params[C.GEOMETRY_DIR])
+    def geometry_files(self):
+        geom_dir = Path(self.geometry_dir)
         return {
             k: geom_dir.joinpath(k.lower() + '.tif').as_posix() for k in C.GEOMETRY_OUTPUT_TYPES
         }

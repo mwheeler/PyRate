@@ -179,7 +179,7 @@ legacy_maxvar = [15.4156637191772,
 class TestLegacyEquality:
     @classmethod
     def setup_class(cls):
-        roipac_params = Configuration(TEST_CONF_ROIPAC).__dict__
+        roipac_params = Configuration(TEST_CONF_ROIPAC)
         from copy import deepcopy
         params = deepcopy(roipac_params)
         shared.mkdir_p(params[C.TMPDIR])
@@ -198,8 +198,8 @@ class TestLegacyEquality:
             Path(i).chmod(0o664)  # assign write permission as conv2tif output is readonly
         ifgs = common.pre_prepare_ifgs(dest_paths, params)
         correct._copy_mlooked(params)
-        correct._update_params_with_tiles(params)
-        correct._create_ifg_dict(params)
+        correct.update_params_with_tiles(params)
+        correct.create_ifg_dict(params)
         pyrate.core.refpixel.ref_pixel_calc_wrapper(params)
         params[C.ORBFIT_OFFSET] = True
         pyrate.core.orbital.remove_orbital_error(ifgs, params)

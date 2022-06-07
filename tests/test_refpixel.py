@@ -59,7 +59,7 @@ class TestReferencePixelInputTests:
     @classmethod
     def setup_method(cls):
         cls.ifgs = small_data_setup()
-        cls.params = Configuration(TEST_CONF_ROIPAC).__dict__
+        cls.params = Configuration(TEST_CONF_ROIPAC)
         cls.params[C.REFNX] = REFNX
         cls.params[C.REFNY] = REFNY
         cls.params[C.REF_CHIP_SIZE] = CHIPSIZE
@@ -120,7 +120,7 @@ class TestReferencePixelTests:
 
     @classmethod
     def setup_method(cls):
-        cls.params = Configuration(TEST_CONF_ROIPAC).__dict__
+        cls.params = Configuration(TEST_CONF_ROIPAC)
         cls.params[C.OUT_DIR], cls.ifgs = copy_and_setup_small_data()
         cls.params[C.REFNX] = REFNX
         cls.params[C.REFNY] = REFNY
@@ -245,12 +245,12 @@ class TestLegacyEqualityTest:
 
     @classmethod
     def setup_method(cls):
-        cls.params = Configuration(TEST_CONF_ROIPAC).__dict__
+        cls.params = Configuration(TEST_CONF_ROIPAC)
         cls.params[C.PARALLEL] = 0
         cls.params[C.OUT_DIR], cls.ifg_paths = copy_small_ifg_file_list()
         conf_file = Path(cls.params[C.OUT_DIR], 'conf_file.conf')
         pyrate.configuration.write_config_file(params=cls.params, output_conf_file=conf_file)
-        cls.params = Configuration(conf_file).__dict__
+        cls.params = Configuration(conf_file)
         cls.params_alt_ref_frac = copy.copy(cls.params)
         cls.params_alt_ref_frac[C.REF_MIN_FRAC] = 0.5
         cls.params_all_2s = copy.copy(cls.params)
@@ -317,12 +317,12 @@ class TestLegacyEqualityTestMultiprocessParallel:
 
     @classmethod
     def setup_method(cls):
-        cls.params = Configuration(TEST_CONF_ROIPAC).__dict__
+        cls.params = Configuration(TEST_CONF_ROIPAC)
         cls.params[C.PARALLEL] = 1
         cls.params[C.OUT_DIR], cls.ifg_paths = copy_small_ifg_file_list()
         conf_file = Path(cls.params[C.OUT_DIR], 'conf_file.conf')
         pyrate.configuration.write_config_file(params=cls.params, output_conf_file=conf_file)
-        cls.params = Configuration(conf_file).__dict__
+        cls.params = Configuration(conf_file)
         cls.params_alt_ref_frac = copy.copy(cls.params)
         cls.params_alt_ref_frac[C.REF_MIN_FRAC] = 0.5
         cls.params_all_2s = copy.copy(cls.params)
@@ -409,9 +409,9 @@ def _get_mlooked_files(gamma_conf, tdir, refx, refy):
     output_conf_file = 'config.conf'
     output_conf = tdir.joinpath(output_conf_file)
     pyrate.configuration.write_config_file(params=params, output_conf_file=output_conf)
-    params = Configuration(output_conf).__dict__
+    params = Configuration(output_conf)
     conv2tif.main(params)
-    params = Configuration(output_conf).__dict__
+    params = Configuration(output_conf)
     prepifg.main(params)
     err = run(f"pyrate correct -f {output_conf}", shell=True, universal_newlines=True, stderr=PIPE).stderr
     return params, err
@@ -424,11 +424,11 @@ class TestRefPixelReuseLoadsSameFileAndPixels:
     @classmethod
     def setup_method(cls):
         cls.conf = TEST_CONF_GAMMA
-        params = Configuration(cls.conf).__dict__
+        params = Configuration(cls.conf)
         conv2tif.main(params)
-        params = Configuration(cls.conf).__dict__
+        params = Configuration(cls.conf)
         prepifg.main(params)
-        params = Configuration(cls.conf).__dict__
+        params = Configuration(cls.conf)
         correct._copy_mlooked(params)
         cls.params = params
 

@@ -34,11 +34,14 @@ from pyrate.core.shared import Tile
 gdal.SetCacheMax(64)
 
 
-def main(params: dict) -> None:
+def main(config: Configuration) -> None:
     """
     PyRate merge main function. Assembles product tiles in to
     single geotiff files
     """
+    # TEMP HACK: Eventually this module needs to be migrated to using Configuration directly.
+    params = config
+
     if params[C.SIGNAL_POLARITY] == 1:
         log.info("Saving output products with the same sign convention as input data")
     elif params[C.SIGNAL_POLARITY] == -1:
@@ -50,20 +53,20 @@ def main(params: dict) -> None:
 
     tsfile = join(params[C.TMPDIR], 'tscuml_0.npy')
     if exists(tsfile):
-        _merge_timeseries(params, 'tscuml')
-        _merge_linrate(params)
+        _merge_timeseries(config, 'tscuml')
+        _merge_linrate(config)
         out_types += ['linear_rate', 'linear_error', 'linear_rsquared']
 
         # optional save of merged tsincr products
         if params["savetsincr"] == 1:
-            _merge_timeseries(params, 'tsincr')
+            _merge_timeseries(config, 'tsincr')
     else:
         log.warning(f'Not merging time series products; {tsfile} does not exist')
 
-    stfile = join(params[C.TMPDIR], 'stack_rate_0.npy')
+    stfile = join(config.tmpdir, 'stack_rate_0.npy')
     if exists(stfile):
         # setup paths
-        mpiops.run_once(_merge_stack, params)
+        mpiops.run_once(_merge_stack, config)
         out_types += ['stack_rate', 'stack_error']
     else:
         log.warning(f'Not merging stack products; {stfile} does not exist')
@@ -76,10 +79,13 @@ def main(params: dict) -> None:
         log.warning('Exiting: no products to merge')
 
 
-def _merge_stack(params: dict) -> None:
+def _merge_stack(config: Configuration) -> None:
     """
     Merge stacking outputs
     """
+    # TEMP HACK: Eventually this module needs to be migrated to using Configuration directly.
+    params = config
+
     shape, tiles, ifgs_dict = __merge_setup(params)
 
     log.info('Merging and writing Stack Rate product geotiffs')
@@ -100,13 +106,16 @@ def _merge_stack(params: dict) -> None:
 
     # save geotiff and numpy array files
     for out, otype in zip([rate, error, samples], ['stack_rate', 'stack_error', 'stack_samples']):
-        __save_merged_files(ifgs_dict, params, out, otype, savenpy=params["savenpy"])
+        __save_merged_files(ifgs_dict, config, out, otype, savenpy=params["savenpy"])
 
 
-def _merge_linrate(params: dict) -> None:
+def _merge_linrate(config: Configuration) -> None:
     """
     Merge linear rate outputs
     """
+    # TEMP HACK: Eventually this module needs to be migrated to using Configuration directly.
+    params = config
+
     shape, tiles, ifgs_dict = mpiops.run_once(__merge_setup, params)
 
     log.info('Merging and writing Linear Rate product geotiffs')
@@ -116,14 +125,17 @@ def _merge_linrate(params: dict) -> None:
     process_out_types = mpiops.array_split(out_types)
     for p_out_type in process_out_types:
         out = assemble_tiles(shape, params[C.TMPDIR], tiles, out_type=p_out_type)
-        __save_merged_files(ifgs_dict, params, out, p_out_type, savenpy=params["savenpy"])
+        __save_merged_files(ifgs_dict, config, out, p_out_type, savenpy=params["savenpy"])
     mpiops.comm.barrier()
 
 
-def _merge_timeseries(params: dict, tstype: str) -> None:
+def _merge_timeseries(config: Configuration, tstype: str) -> None:
     """
     Merge tiled time series outputs
     """
+    # TEMP HACK: Eventually this module needs to be migrated to using Configuration directly.
+    params = config
+
     log.info(f'Merging {tstype} time series outputs')
     shape, tiles, ifgs_dict = __merge_setup(params)
 
@@ -142,7 +154,7 @@ def _merge_timeseries(params: dict, tstype: str) -> None:
     for i in process_tifs:
         ts_arr = assemble_tiles(shape, params[C.TMPDIR], tiles, out_type=tstype, index=i)
         __save_merged_files(
-            ifgs_dict, params, ts_arr, out_type=tstype, index=i, savenpy=params["savenpy"]
+            ifgs_dict, config, ts_arr, out_type=tstype, index=i, savenpy=params["savenpy"]
         )
 
     mpiops.comm.barrier()
@@ -299,10 +311,13 @@ los_projection_divisors = {
 }
 
 
-def __save_merged_files(ifgs_dict, params, array, out_type, index=None, savenpy=None):
+def __save_merged_files(ifgs_dict, config: Configuration, array, out_type, index=None, savenpy=None):
     """
     Convenience function to save PyRate geotiff and numpy array files
     """
+    # TEMP HACK: Eventually this module needs to be migrated to using Configuration directly.
+    params = config
+
     ts_dir = params[C.TIMESERIES_DIR]
     vel_dir = params[C.VELOCITY_DIR]
     log.debug(f'Saving PyRate outputs {out_type}')
@@ -327,7 +342,7 @@ def __save_merged_files(ifgs_dict, params, array, out_type, index=None, savenpy=
     los_proj = params[C.LOS_PROJECTION]
 
     if out_type in los_projection_out_types:
-        incidence_path = Path(Configuration.geometry_files(params)['incidence_angle'])
+        incidence_path = Path(config.geometry_files()['incidence_angle'])
         if incidence_path.exists():  # We can do LOS projection
             if los_proj == ifc.LINE_OF_SIGHT:
                 log.info(f"Retaining Line-of-sight signal projection for file {dest}")
@@ -361,15 +376,15 @@ def __save_merged_files(ifgs_dict, params, array, out_type, index=None, savenpy=
     log.debug(f'Finished saving {out_type}')
 
 
-def __merge_setup(params):
+def __merge_setup(config: Configuration):
     """
     Convenience function for Merge set up steps
     """
     # load previously saved preread_ifgs dict
-    preread_ifgs_file = Configuration.preread_ifgs(params)
+    preread_ifgs_file = Configuration.preread_ifgs(config)
     with open(preread_ifgs_file, 'rb') as file:
         ifgs_dict = pickle.load(file)
     ifgs = [v for v in ifgs_dict.values() if isinstance(v, shared.PrereadIfg)]
     shape = ifgs[0].shape
-    tiles = Configuration.get_tiles(params)
+    tiles = Configuration.get_tiles(config)
     return shape, tiles, ifgs_dict

@@ -772,8 +772,8 @@ class TestLegacyComparisonTestsOrbfitMethod1:
         self.params[C.ORBFIT_OFFSET] = False
         Path(self.BASE_DIR).joinpath('tmpdir').mkdir(exist_ok=True, parents=True)
         correct._copy_mlooked(self.params)
-        correct._update_params_with_tiles(self.params)
-        correct._create_ifg_dict(self.params)
+        correct.update_params_with_tiles(self.params)
+        correct.create_ifg_dict(self.params)
         correct._copy_mlooked(self.params)
         pyrate.core.orbital.orb_fit_calc_wrapper(self.params)
 
@@ -822,7 +822,7 @@ class TestLegacyComparisonTestsOrbfitMethod2:
     @classmethod
     def setup_class(cls):
         # change to orbital error correction method 2
-        cls.params = Configuration(common.TEST_CONF_ROIPAC).__dict__
+        cls.params = Configuration(common.TEST_CONF_ROIPAC)
         cls.BASE_DIR = cls.params[C.OUT_DIR]
         cls.params[C.ORBITAL_FIT_METHOD] = NETWORK_METHOD
         cls.params[C.ORBITAL_FIT_LOOKS_X] = 1
@@ -851,7 +851,7 @@ class TestLegacyComparisonTestsOrbfitMethod2:
 
     def test_orbital_correction_legacy_equality_orbfit_method_2(self):
         correct._copy_mlooked(self.params)
-        correct._create_ifg_dict(self.params)
+        correct.create_ifg_dict(self.params)
         remove_orbital_error(self.new_data_paths, self.params)
 
         onlyfiles = [f for f in os.listdir(SML_TEST_LEGACY_ORBITAL_DIR)
@@ -885,7 +885,7 @@ class TestLegacyComparisonTestsOrbfitMethod2:
         self.params[C.ORBITAL_FIT_LOOKS_X] = 2
         self.params[C.ORBITAL_FIT_LOOKS_Y] = 2
         correct._copy_mlooked(self.params)
-        correct._create_ifg_dict(self.params)
+        correct.create_ifg_dict(self.params)
         remove_orbital_error(self.new_data_paths, self.params)
 
         onlyfiles = [f for f in os.listdir(SML_TEST_LEGACY_ORBITAL_DIR)
@@ -916,13 +916,13 @@ class TestOrbErrorCorrectionsOnDiscReused:
     @classmethod
     def setup_class(cls):
         cls.conf = TEST_CONF_GAMMA
-        params = Configuration(cls.conf).__dict__
+        params = Configuration(cls.conf)
         conv2tif.main(params)
-        params = Configuration(cls.conf).__dict__
+        params = Configuration(cls.conf)
         prepifg.main(params)
-        cls.params = Configuration(cls.conf).__dict__
+        cls.params = Configuration(cls.conf)
         correct._copy_mlooked(cls.params)
-        correct._create_ifg_dict(cls.params)
+        correct.create_ifg_dict(cls.params)
 
     @classmethod
     def teardown_class(cls):
@@ -969,13 +969,13 @@ class TestOrbErrorCorrectionsReappliedDoesNotChangePhaseData:
     @classmethod
     def setup_method(cls):
         cls.conf = TEST_CONF_GAMMA
-        params = Configuration(cls.conf).__dict__
+        params = Configuration(cls.conf)
         conv2tif.main(params)
-        params = Configuration(cls.conf).__dict__
+        params = Configuration(cls.conf)
         prepifg.main(params)
-        cls.params = Configuration(cls.conf).__dict__
+        cls.params = Configuration(cls.conf)
         correct._copy_mlooked(cls.params)
-        correct._create_ifg_dict(cls.params)
+        correct.create_ifg_dict(cls.params)
         multi_paths = cls.params[C.INTERFEROGRAM_FILES]
         cls.ifg_paths = [p.tmp_sampled_path for p in multi_paths]
 
@@ -1019,13 +1019,13 @@ class TestOrbfitIndependentMethodWithMultilooking:
     @classmethod
     def setup_class(cls):
         cls.conf = TEST_CONF_GAMMA
-        params = Configuration(cls.conf).__dict__
+        params = Configuration(cls.conf)
         conv2tif.main(params)
-        params = Configuration(cls.conf).__dict__
+        params = Configuration(cls.conf)
         prepifg.main(params)
-        cls.params = Configuration(cls.conf).__dict__
+        cls.params = Configuration(cls.conf)
         correct._copy_mlooked(cls.params)
-        correct._create_ifg_dict(cls.params)
+        correct.create_ifg_dict(cls.params)
 
     @classmethod
     def teardown_class(cls):

@@ -78,7 +78,7 @@ class TestRefPhsTests:
     """Basic reference phase estimation tests"""
 
     def setup_method(self):
-        self.params = Configuration(common.TEST_CONF_GAMMA).__dict__
+        self.params = Configuration(common.TEST_CONF_GAMMA)
         self.tmp_dir = tempfile.mkdtemp()
         self.params[C.OUT_DIR] = self.tmp_dir
         self.params[C.REF_EST_METHOD] = 1
@@ -101,7 +101,7 @@ class TestRefPhsTests:
         self.params[C.REF_CHIP_SIZE], self.params[C.REF_MIN_FRAC] = 21, 0.5
         self.params['rows'], self.params['cols'] = 3, 2
         self.params[C.REF_PIXEL_FILE] = Configuration.ref_pixel_path(self.params)
-        correct._update_params_with_tiles(self.params)
+        correct.update_params_with_tiles(self.params)
         correct.ref_pixel_calc_wrapper(self.params)
        
     def teardown_method(self):
@@ -159,7 +159,7 @@ class TestRefPhsEstimationLegacyTestMethod1Serial:
     @classmethod
     def setup_class(cls):
         # start with a clean output dir
-        params = Configuration(common.TEST_CONF_ROIPAC).__dict__
+        params = Configuration(common.TEST_CONF_ROIPAC)
         conv2tif.main(params)
         prepifg.main(params)
         for p in params[C.INTERFEROGRAM_FILES]:  # hack
@@ -191,7 +191,7 @@ class TestRefPhsEstimationLegacyTestMethod1Serial:
             p.tmp_sampled_path = p.sampled_path
         params[C.REFX], params[C.REFY] = refx, refy
         params['rows'], params['cols'] = 3, 2
-        correct._update_params_with_tiles(params)
+        correct.update_params_with_tiles(params)
         cls.ref_phs, cls.ifgs = ref_phase_est_wrapper(params)
         cls.params = params
 
@@ -241,7 +241,7 @@ class TestRefPhsEstimationLegacyTestMethod1Parallel:
     """
     @classmethod
     def setup_class(cls):
-        params = Configuration(common.TEST_CONF_ROIPAC).__dict__
+        params = Configuration(common.TEST_CONF_ROIPAC)
         conv2tif.main(params)
         prepifg.main(params)
         for p in params[C.INTERFEROGRAM_FILES]:  # hack
@@ -275,7 +275,7 @@ class TestRefPhsEstimationLegacyTestMethod1Parallel:
             p.tmp_sampled_path = p.sampled_path
         params[C.REFX], params[C.REFY] = refx, refy
         params['rows'], params['cols'] = 3, 2
-        correct._update_params_with_tiles(params)
+        correct.update_params_with_tiles(params)
         cls.ref_phs, cls.ifgs = ref_phase_est_wrapper(params)
         cls.params = params
 
@@ -327,7 +327,7 @@ class TestRefPhsEstimationLegacyTestMethod2Serial:
 
     @classmethod
     def setup_class(cls):
-        params = Configuration(common.TEST_CONF_ROIPAC).__dict__
+        params = Configuration(common.TEST_CONF_ROIPAC)
         conv2tif.main(params)
         prepifg.main(params)
         for p in params[C.INTERFEROGRAM_FILES]:  # hack
@@ -360,7 +360,7 @@ class TestRefPhsEstimationLegacyTestMethod2Serial:
             p.tmp_sampled_path = p.sampled_path
         params[C.REFX], params[C.REFY] = refx, refy
         params['rows'], params['cols'] = 3, 2
-        correct._update_params_with_tiles(params)
+        correct.update_params_with_tiles(params)
 
         cls.ref_phs, cls.ifgs = ref_phase_est_wrapper(params)
         cls.params = params
@@ -414,7 +414,7 @@ class TestRefPhsEstimationLegacyTestMethod2Parallel:
 
     @classmethod
     def setup_class(cls):
-        params = Configuration(common.TEST_CONF_ROIPAC).__dict__
+        params = Configuration(common.TEST_CONF_ROIPAC)
         conv2tif.main(params)
         prepifg.main(params)
         for p in params[C.INTERFEROGRAM_FILES]:  # hack
@@ -447,7 +447,7 @@ class TestRefPhsEstimationLegacyTestMethod2Parallel:
             p.tmp_sampled_path = p.sampled_path
         params[C.REFX], params[C.REFY] = refx, refy
         params['rows'], params['cols'] = 3, 2
-        correct._update_params_with_tiles(params)
+        correct.update_params_with_tiles(params)
         cls.ref_phs, cls.ifgs = ref_phase_est_wrapper(params)
         cls.params = params
 
@@ -495,9 +495,9 @@ class TestRefPhsEstReusedFromDisc:
     @classmethod
     def setup_class(cls):
         cls.conf = TEST_CONF_GAMMA
-        params = Configuration(cls.conf).__dict__
+        params = Configuration(cls.conf)
         conv2tif.main(params)
-        params = Configuration(cls.conf).__dict__
+        params = Configuration(cls.conf)
         prepifg.main(params)
         cls.params = params
 
@@ -506,10 +506,10 @@ class TestRefPhsEstReusedFromDisc:
         shutil.rmtree(cls.params[C.OUT_DIR])
 
     def test_ref_phase_used_from_disc_on_rerun(self, ref_est_method):
-        self.params = Configuration(self.conf).__dict__
+        self.params = Configuration(self.conf)
         self.params[C.REF_EST_METHOD] = ref_est_method
         correct._copy_mlooked(self.params)
-        correct._update_params_with_tiles(self.params)
+        correct.update_params_with_tiles(self.params)
 
         phase_prev, time_written = self.__run_once()
 
@@ -534,7 +534,7 @@ class TestRefPhsEstReusedFromDisc:
         ifg_paths = [p.tmp_sampled_path for p in multi_paths]
         ifgs = [Ifg(i) for i in ifg_paths]
         self.params[C.REFX_FOUND], self.params[C.REFY_FOUND] = ref_pixel_calc_wrapper(self.params)
-        correct._create_ifg_dict(self.params)
+        correct.create_ifg_dict(self.params)
         ref_phase_est_wrapper(self.params)
         for i in ifgs:
             i.open()

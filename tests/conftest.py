@@ -42,7 +42,7 @@ def tempdir():
 
 @pytest.fixture(params=[ROIPAC_SYSTEM_CONF, GEOTIF_SYSTEM_CONF, GAMMA_SYSTEM_CONF])
 def system_conf(request):
-    params = Configuration(request.param).__dict__
+    params = Configuration(request.param)
     yield request.param
     shutil.rmtree(params[C.OUT_DIR], ignore_errors=True)
 
@@ -110,14 +110,14 @@ def get_crop(request):
 @pytest.fixture()
 def get_config():
     def params(conf_file):
-        params_ = Configuration(conf_file).__dict__
+        params_ = Configuration(conf_file)
         return params_
     return params
 
 
 @pytest.fixture
 def gamma_params():
-    params = Configuration(TEST_CONF_GAMMA).__dict__
+    params = Configuration(TEST_CONF_GAMMA)
     shared.mkdir_p(params[C.OUT_DIR])
     yield params
     shutil.rmtree(params[C.OUT_DIR], ignore_errors=True)
@@ -125,14 +125,14 @@ def gamma_params():
 
 @pytest.fixture
 def roipac_params():
-    params = Configuration(TEST_CONF_ROIPAC).__dict__
+    params = Configuration(TEST_CONF_ROIPAC)
     yield params
     shutil.rmtree(params[C.OUT_DIR], ignore_errors=True)
 
 
 @pytest.fixture
 def mexico_cropa_params():
-    params = Configuration(MEXICO_CROPA_CONF).__dict__
+    params = Configuration(MEXICO_CROPA_CONF)
     yield params
     shutil.rmtree(params[C.OUT_DIR], ignore_errors=True)
 
@@ -144,7 +144,7 @@ def roipac_or_gamma_conf(request):
 
 @pytest.fixture(params=[TEST_CONF_GAMMA], scope='session')
 def gamma_conf(request):
-    params = Configuration(TEST_CONF_GAMMA).__dict__
+    params = Configuration(TEST_CONF_GAMMA)
     yield request.param
     shutil.rmtree(params[C.OUT_DIR], ignore_errors=True)
 
@@ -163,7 +163,7 @@ def dem():
 
 @pytest.fixture(params=[TEST_CONF_GAMMA, MEXICO_CROPA_CONF], scope='session')
 def gamma_or_mexicoa_conf(request):
-    params = Configuration(request.param).__dict__
+    params = Configuration(request.param)
     yield request.param
     shutil.rmtree(params[C.OUT_DIR], ignore_errors=True)
 

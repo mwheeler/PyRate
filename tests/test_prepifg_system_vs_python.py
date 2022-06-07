@@ -83,9 +83,9 @@ def create_mpi_files(modified_config_short):
     def _create(conf):
 
         mpi_conf, params = modified_config_short(conf, 0, 'mpi_conf.conf')
-        params = Configuration(mpi_conf).__dict__
+        params = Configuration(mpi_conf)
         conv2tif.main(params)
-        params = Configuration(mpi_conf).__dict__
+        params = Configuration(mpi_conf)
         prepifg.main(params)
 
         return params  # don't need the reamining params
@@ -142,11 +142,11 @@ def test_prepifg_largetifs_vs_python(modified_config_largetifs, gamma_conf, crea
 
     params = create_mpi_files(gamma_conf)
     sr_conf, params_p = modified_config_largetifs(gamma_conf, 1, 'parallel_conf.conf')
-    params_p = Configuration(sr_conf).__dict__
+    params_p = Configuration(sr_conf)
     conv2tif.main(params_p)
-    params_p = Configuration(sr_conf).__dict__
+    params_p = Configuration(sr_conf)
     prepifg.main(params_p)
-    params_p = Configuration(sr_conf).__dict__
+    params_p = Configuration(sr_conf)
     # convert2tif tests, 17 interferograms
     assert_two_dirs_equal(params[C.INTERFEROGRAM_DIR], params_p[C.INTERFEROGRAM_DIR], "*_unw.tif", 17)
 

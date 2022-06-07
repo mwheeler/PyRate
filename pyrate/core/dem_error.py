@@ -85,12 +85,15 @@ def dem_error_calc_wrapper(params: dict) -> None:
         log.debug('Finished DEM error correction step')
 
 
-def _process_dem_error_per_tile(tile: Tile, params: dict) -> None:
+def _process_dem_error_per_tile(tile: Tile, config: Configuration) -> None:
     """
     Convenience function for processing DEM error in tiles
     :param tile: pyrate.core.shared.Tile Class object.
     :param params: Dictionary of PyRate configuration parameters.
     """
+    # TEMP HACK: Eventually this module needs to be migrated to using Configuration directly.
+    params = config
+
     ifg_paths = [ifg_path.tmp_sampled_path for ifg_path in params[C.INTERFEROGRAM_FILES]]
     ifg0_path = ifg_paths[0]
     ifg0 = Ifg(ifg0_path)
@@ -98,7 +101,7 @@ def _process_dem_error_per_tile(tile: Tile, params: dict) -> None:
     # read lon and lat values of multi-looked ifg (first ifg only)
     lon, lat = geometry.get_lonlat_coords(ifg0)
     # read azimuth and range coords and DEM from tif files generated in prepifg
-    geom_files = Configuration.geometry_files(params)
+    geom_files = config.geometry_files()
     rdc_az_file = geom_files['rdc_azimuth']
     geom_az = Geometry(rdc_az_file)
     rdc_rg_file = geom_files['rdc_range']

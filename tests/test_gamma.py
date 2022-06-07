@@ -320,7 +320,7 @@ def parallel_ifgs(gamma_conf):
     output_conf = tdir.joinpath(output_conf_file)
     pyrate.configuration.write_config_file(params=params_p, output_conf_file=output_conf)
 
-    params_p = Configuration(output_conf).__dict__
+    params_p = Configuration(output_conf)
 
     conv2tif.main(params_p)
     prepifg.main(params_p)
@@ -345,7 +345,7 @@ def series_ifgs(gamma_conf):
     output_conf = tdir.joinpath(output_conf_file)
     pyrate.configuration.write_config_file(params=params_s, output_conf_file=output_conf)
 
-    params_s = Configuration(output_conf).__dict__
+    params_s = Configuration(output_conf)
 
     conv2tif.main(params_s)
 

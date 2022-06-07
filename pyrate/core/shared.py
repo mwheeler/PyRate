@@ -810,7 +810,7 @@ def nanmedian(x):
     return np.median(x[~np.isnan(x)])
 
 
-def _is_interferogram(hdr):
+def is_interferogram(hdr):
     """
     Convenience function to determine if file is interferogram
     """
@@ -867,8 +867,8 @@ def write_fullres_geotiff(header, data_path, dest, nodata):
     ifg_proc = header[ifc.PYRATE_INSAR_PROCESSOR]
     ncols = header[ifc.PYRATE_NCOLS]
     nrows = header[ifc.PYRATE_NROWS]
-    bytes_per_col, fmtstr = data_format(ifg_proc, _is_interferogram(header), ncols)
-    if _is_interferogram(header) and ifg_proc == ROIPAC:
+    bytes_per_col, fmtstr = data_format(ifg_proc, is_interferogram(header), ncols)
+    if is_interferogram(header) and ifg_proc == ROIPAC:
         # roipac ifg has 2 bands
         _check_raw_data(bytes_per_col*2, data_path, ncols, nrows)
     else:
@@ -886,7 +886,7 @@ def write_fullres_geotiff(header, data_path, dest, nodata):
         raise GeotiffException(msg)
 
     wkt = srs.ExportToWkt()
-    is_float = _is_interferogram(header)
+    is_float = is_interferogram(header)
     is_float |= _is_incidence(header)
     is_float |= _is_coherence(header)
     is_float |= _is_baseline(header)
@@ -913,7 +913,7 @@ def write_fullres_geotiff(header, data_path, dest, nodata):
     with open(data_path, 'rb') as f:
         for y in range(nrows):
             if ifg_proc == ROIPAC:
-                if _is_interferogram(header):
+                if is_interferogram(header):
                     f.seek(row_bytes, 1)  # skip interleaved band 1
 
             data = struct.unpack(fmtstr, f.read(row_bytes))
@@ -992,7 +992,7 @@ def collate_metadata(header):
     elif _is_baseline(header):
         __common_ifg_coh_update(header, md)
         md.update({ifc.DATA_TYPE: ifc.BASE})
-    elif _is_interferogram(header):
+    elif is_interferogram(header):
         __common_ifg_coh_update(header, md)
         md.update({ifc.DATA_TYPE: ifc.ORIG})
     elif _is_lookuptable(header):

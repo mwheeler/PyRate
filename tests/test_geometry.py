@@ -57,7 +57,7 @@ class TestPyRateAngleFiles:
 
     @classmethod
     def setup_class(cls):
-        cls.params = Configuration(common.MEXICO_CROPA_CONF).__dict__
+        cls.params = Configuration(common.MEXICO_CROPA_CONF)
         # run prepifg
         prepifg.main(cls.params)
         # copy IFGs to temp folder

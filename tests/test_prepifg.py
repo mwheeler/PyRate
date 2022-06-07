@@ -65,13 +65,13 @@ def test_prepifg_treats_inputs_and_outputs_read_only(gamma_conf, tempdir, coh_ma
     output_conf = tdir.joinpath('conf.cfg')
     pyrate.configuration.write_config_file(params=params, output_conf_file=output_conf)
 
-    params = Configuration(output_conf.as_posix()).__dict__
+    params = Configuration(output_conf.as_posix())
     conv2tif.main(params)
 
     tifs = list(Path(params[C.INTERFEROGRAM_DIR]).glob('*_unw.tif'))
     assert len(tifs) == 17
 
-    params = Configuration(output_conf.as_posix()).__dict__
+    params = Configuration(output_conf.as_posix())
     prepifg.main(params)
     cropped_ifgs = list(Path(params[C.INTERFEROGRAM_DIR]).glob('*_ifg.tif'))
     cropped_cohs = list(Path(params[C.COHERENCE_DIR]).glob('*_coh.tif'))
@@ -98,10 +98,10 @@ def test_prepifg_file_types(tempdir, gamma_conf, coh_mask):
     output_conf_file = 'conf.conf'
     output_conf = tdir.joinpath(output_conf_file)
     pyrate.configuration.write_config_file(params=params, output_conf_file=output_conf)
-    params_s = Configuration(output_conf).__dict__
+    params_s = Configuration(output_conf)
     conv2tif.main(params_s)
     # reread params from config
-    params_s = Configuration(output_conf).__dict__
+    params_s = Configuration(output_conf)
     prepifg.main(params_s)
     ifg_files = list(Path(tdir.joinpath(params_s[C.INTERFEROGRAM_DIR])).glob('*_unw.tif'))
     assert len(ifg_files) == 17
@@ -234,7 +234,7 @@ class TestPrepifgOutput(UnitTestAdaptation):
         cls.ifgs, cls.random_dir = diff_exts_ifgs()
         cls.ifg_paths = [i.data_path for i in cls.ifgs]
 
-        cls.params = Configuration(common.TEST_CONF_ROIPAC).__dict__
+        cls.params = Configuration(common.TEST_CONF_ROIPAC)
         cls.params[C.OUT_DIR] = cls.random_dir
         cls.params[C.GEOMETRY_DIR] = Path(cls.random_dir).joinpath(C.GEOMETRY_DIR)
         cls.params[C.GEOMETRY_DIR].mkdir(exist_ok=True)
@@ -749,7 +749,7 @@ class TestLegacyEqualityTestRoipacSmallTestData(UnitTestAdaptation):
         from tests.common import small_data_setup
         cls.ifgs = small_data_setup()
         cls.ifg_paths = [i.data_path for i in cls.ifgs]
-        params = Configuration(common.TEST_CONF_ROIPAC).__dict__
+        params = Configuration(common.TEST_CONF_ROIPAC)
         cls.headers = [roipac.roipac_header(i.data_path, params) for i in cls.ifgs]
         params[C.IFG_LKSX], params[C.IFG_LKSY], params[
             C.IFG_CROP_OPT] = 1, 1, 1
@@ -839,7 +839,7 @@ class TestOneIncidenceOrElevationMap(UnitTestAdaptation):
 
     @classmethod
     def teardown_class(cls):
-        params = Configuration(cls.conf_file).__dict__
+        params = Configuration(cls.conf_file)
         shutil.rmtree(cls.base_dir)
         common.remove_tifs(params[WORKING_DIR])
 
@@ -872,7 +872,7 @@ class TestOneIncidenceOrElevationMap(UnitTestAdaptation):
         from pyrate.configuration import Configuration
         assert os.path.exists(self.conf_file)
 
-        params = Configuration(self.conf_file).__dict__
+        params = Configuration(self.conf_file)
 
         conv2tif.main(params)
         sys.argv = ['dummy', self.conf_file]
