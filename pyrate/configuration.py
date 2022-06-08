@@ -245,6 +245,8 @@ class Configuration:
     # Number of sigma to report velocity error
     velerror_nsig: int
 
+    #: FLOAT; The no data value in the interferogram files.
+    noDataValue: float
     # FIXME: We need to proxy this w/ a python-friendly name...
     noDataAveragingThreshold: float
 

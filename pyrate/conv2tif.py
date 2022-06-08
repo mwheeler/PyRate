@@ -30,7 +30,7 @@ from pyrate.core.prepifg_helper import PreprocessError
 from pyrate.core import shared, mpiops, gamma, roipac
 from pyrate.core import ifgconstants as ifc
 from pyrate.core.logger import pyratelogger as log
-from pyrate.configuration import MultiplePaths
+from pyrate.configuration import Configuration, MultiplePaths
 from pyrate.core.shared import mpi_vs_multiprocess_logging
 
 GAMMA = 1
@@ -38,11 +38,11 @@ ROIPAC = 0
 GEOTIF = 2
 
 
-def main(params):
+def main(config: Configuration):
     """
     Parse parameters and prepare files for conversion.
 
-    :param dict params: Parameters dictionary read in from the config file
+    :param Configuration config: The workflow configuration to use for processing
     """
     # TODO: looks like base_ifg_paths are ordered according to ifg list
     # This probably won't be a problem because input list won't be reordered
@@ -51,68 +51,65 @@ def main(params):
     # Going to assume base_ifg_paths is ordered correcly
     # pylint: disable=too-many-branches
 
-    if params[C.PROCESSOR] == 2:  # if geotif
+    if config.processor == 2:  # if geotif
         log.warning("'conv2tif' step not required for geotiff!")
         return None
 
-    mpi_vs_multiprocess_logging("conv2tif", params)
+    mpi_vs_multiprocess_logging("conv2tif", config)
 
-    base_ifg_paths = params[C.INTERFEROGRAM_FILES]
+    base_ifg_paths = config.interferogram_files
 
-    if params[C.COH_FILE_LIST] is not None:
-        base_ifg_paths.extend(params[C.COHERENCE_FILE_PATHS])
+    if config.cohfilelist is not None:
+        base_ifg_paths.extend(config.coherence_file_paths)
 
-    if params[C.DEM_FILE] is not None:  # optional DEM conversion
-        base_ifg_paths.append(params[C.DEM_FILE_PATH])
+    if config.demfile is not None:  # optional DEM conversion
+        base_ifg_paths.append(config.dem_file)
 
     process_base_ifgs_paths = np.array_split(base_ifg_paths, mpiops.size)[mpiops.rank]
-    gtiff_paths = do_geotiff(process_base_ifgs_paths, params)
+    gtiff_paths = do_geotiff(process_base_ifgs_paths, config)
     mpiops.comm.barrier()
     log.info("Finished 'conv2tif' step")
     return gtiff_paths
 
 
-def do_geotiff(unw_paths: List[MultiplePaths], params: dict) -> List[str]:
+def do_geotiff(unw_paths: List[MultiplePaths], config: Configuration) -> List[str]:
     """
     Convert input interferograms to geotiff format.
     """
     # pylint: disable=expression-not-assigned
     log.info("Converting input interferograms to geotiff")
-    parallel = params[C.PARALLEL]
 
-    if parallel:
-        log.info("Running geotiff conversion in parallel with {params[C.PROCESSES]} processes")
-        dest_base_ifgs = Parallel(n_jobs=params[C.PROCESSES], verbose=shared.joblib_log_level(
+    if config.parallel:
+        log.info("Running geotiff conversion in parallel with {config.processes} processes")
+        dest_base_ifgs = Parallel(n_jobs=config.processes, verbose=shared.joblib_log_level(
             C.LOG_LEVEL))(
-            delayed(_geotiff_multiprocessing)(p, params) for p in unw_paths)
+            delayed(_geotiff_multiprocessing)(p, config) for p in unw_paths)
     else:
         log.info("Running geotiff conversion in serial")
-        dest_base_ifgs = [_geotiff_multiprocessing(b, params) for b in unw_paths]
+        dest_base_ifgs = [_geotiff_multiprocessing(b, config) for b in unw_paths]
     return dest_base_ifgs
 
 
-def _geotiff_multiprocessing(unw_path: MultiplePaths, params: dict) -> Tuple[str, bool]:
+def _geotiff_multiprocessing(unw_path: MultiplePaths, config: Configuration) -> Tuple[str, bool]:
     """
     Multiprocessing wrapper for full-res geotiff conversion
     """
     # TODO: Need a more robust method for identifying coherence files.
     dest = unw_path.converted_path
-    processor = params[C.PROCESSOR]  # roipac or gamma
 
     # Create full-res geotiff if not already on disk
     if os.path.exists(dest):
         log.warning(f"Full-res geotiff already exists in {dest}! Returning existing geotiff!")
         return dest, False
 
-    if processor == GAMMA:
-        header = gamma.gamma_header(unw_path.unwrapped_path, params)
-    elif processor == ROIPAC:
+    if config.processor == GAMMA:
+        header = gamma.gamma_header(unw_path.unwrapped_path, config)
+    elif config.processor == ROIPAC:
         log.info("Warning: ROI_PAC support will be deprecated in a future PyRate release")
-        header = roipac.roipac_header(unw_path.unwrapped_path, params)
+        header = roipac.roipac_header(unw_path.unwrapped_path, config)
     else:
         raise PreprocessError('Processor must be ROI_PAC (0) or GAMMA (1)')
     header[ifc.INPUT_TYPE] = unw_path.input_type
-    shared.write_fullres_geotiff(header, unw_path.unwrapped_path, dest, nodata=params[
-        C.NO_DATA_VALUE])
+    shared.write_fullres_geotiff(header, unw_path.unwrapped_path, dest, nodata=config.noDataValue)
     Path(dest).chmod(0o444)  # readonly output
     return dest, True
