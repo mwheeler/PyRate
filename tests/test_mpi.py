@@ -56,9 +56,9 @@ def test_vcm_legacy_vs_mpi(mpisync, tempdir, roipac_or_gamma_conf):
     prepifg.main(params)
     params = configuration.Configuration(output_conf)
     params[C.ORBFIT_OFFSET] = True
-    correct._copy_mlooked(params=params)
+    correct._copy_mlooked(params)
     correct.update_params_with_tiles(params)
-    correct.create_ifg_dict(params=params)
+    correct.create_ifg_dict(params)
     pyrate.core.refpixel.ref_pixel_calc_wrapper(params)
     pyrate.core.orbital.orb_fit_calc_wrapper(params)
     pyrate.core.ref_phs_est.ref_phase_est_wrapper(params)

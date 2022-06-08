@@ -39,26 +39,23 @@ def main(config: Configuration) -> None:
     PyRate merge main function. Assembles product tiles in to
     single geotiff files
     """
-    # TEMP HACK: Eventually this module needs to be migrated to using Configuration directly.
-    params = config
-
-    if params[C.SIGNAL_POLARITY] == 1:
+    if config.signal_polarity == 1:
         log.info("Saving output products with the same sign convention as input data")
-    elif params[C.SIGNAL_POLARITY] == -1:
+    elif config.signal_polarity == -1:
         log.info("Saving output products with reversed sign convention compared to the input data")
     else:
         log.warning("Check the value of signal_polarity parameter")
 
     out_types = []
 
-    tsfile = join(params[C.TMPDIR], 'tscuml_0.npy')
+    tsfile = join(config.tmpdir, 'tscuml_0.npy')
     if exists(tsfile):
         _merge_timeseries(config, 'tscuml')
         _merge_linrate(config)
         out_types += ['linear_rate', 'linear_error', 'linear_rsquared']
 
         # optional save of merged tsincr products
-        if params["savetsincr"] == 1:
+        if config.savetsincr == 1:
             _merge_timeseries(config, 'tsincr')
     else:
         log.warning(f'Not merging time series products; {tsfile} does not exist')
@@ -74,7 +71,7 @@ def main(config: Configuration) -> None:
     if len(out_types) > 0:
         process_out_types = mpiops.array_split(out_types)
         for out_type in process_out_types:
-            create_png_and_kml_from_tif(params[C.VELOCITY_DIR], output_type=out_type)
+            create_png_and_kml_from_tif(config.velocity_dir, output_type=out_type)
     else:
         log.warning('Exiting: no products to merge')
 
@@ -83,40 +80,34 @@ def _merge_stack(config: Configuration) -> None:
     """
     Merge stacking outputs
     """
-    # TEMP HACK: Eventually this module needs to be migrated to using Configuration directly.
-    params = config
-
-    shape, tiles, ifgs_dict = __merge_setup(params)
+    shape, tiles, ifgs_dict = __merge_setup(config)
 
     log.info('Merging and writing Stack Rate product geotiffs')
 
     # read and assemble tile outputs
-    rate = assemble_tiles(shape, params[C.TMPDIR], tiles, out_type='stack_rate')
-    error = assemble_tiles(shape, params[C.TMPDIR], tiles, out_type='stack_error')
-    samples = assemble_tiles(shape, params[C.TMPDIR], tiles, out_type='stack_samples')
+    rate = assemble_tiles(shape, config.tmpdir, tiles, out_type='stack_rate')
+    error = assemble_tiles(shape, config.tmpdir, tiles, out_type='stack_error')
+    samples = assemble_tiles(shape, config.tmpdir, tiles, out_type='stack_samples')
 
     # mask pixels according to threshold
-    if params[C.LR_MAXSIG] > 0:
+    if config.maxsig > 0:
         msg = f"Masking stack_rate and stack_error maps where error is greater " \
-              f"than {params[C.LR_MAXSIG]} millimetres"
+              f"than {config.maxsig} millimetres"
         log.info(msg)
-        rate, error = stack.mask_rate(rate, error, params[C.LR_MAXSIG])
+        rate, error = stack.mask_rate(rate, error, config.maxsig)
     else:
         log.info('Skipping stack product masking (maxsig = 0)')
 
     # save geotiff and numpy array files
     for out, otype in zip([rate, error, samples], ['stack_rate', 'stack_error', 'stack_samples']):
-        __save_merged_files(ifgs_dict, config, out, otype, savenpy=params["savenpy"])
+        __save_merged_files(ifgs_dict, config, out, otype, savenpy=config.savenpy)
 
 
 def _merge_linrate(config: Configuration) -> None:
     """
     Merge linear rate outputs
     """
-    # TEMP HACK: Eventually this module needs to be migrated to using Configuration directly.
-    params = config
-
-    shape, tiles, ifgs_dict = mpiops.run_once(__merge_setup, params)
+    shape, tiles, ifgs_dict = mpiops.run_once(__merge_setup, config)
 
     log.info('Merging and writing Linear Rate product geotiffs')
 
@@ -124,8 +115,8 @@ def _merge_linrate(config: Configuration) -> None:
     out_types = ['linear_' + x for x in ['rate', 'rsquared', 'error', 'intercept', 'samples']]
     process_out_types = mpiops.array_split(out_types)
     for p_out_type in process_out_types:
-        out = assemble_tiles(shape, params[C.TMPDIR], tiles, out_type=p_out_type)
-        __save_merged_files(ifgs_dict, config, out, p_out_type, savenpy=params["savenpy"])
+        out = assemble_tiles(shape, config.tmpdir, tiles, out_type=p_out_type)
+        __save_merged_files(ifgs_dict, config, out, p_out_type, savenpy=config.savenpy)
     mpiops.comm.barrier()
 
 
@@ -133,14 +124,11 @@ def _merge_timeseries(config: Configuration, tstype: str) -> None:
     """
     Merge tiled time series outputs
     """
-    # TEMP HACK: Eventually this module needs to be migrated to using Configuration directly.
-    params = config
-
     log.info(f'Merging {tstype} time series outputs')
-    shape, tiles, ifgs_dict = __merge_setup(params)
+    shape, tiles, ifgs_dict = __merge_setup(config)
 
     # load the first time series file to determine the number of time series tifs
-    ts_file = join(params[C.TMPDIR], tstype + '_0.npy')
+    ts_file = join(config.tmpdir, tstype + '_0.npy')
     ts = np.load(file=ts_file)
     # pylint: disable=no-member
     no_ts_tifs = ts.shape[2]
@@ -152,9 +140,9 @@ def _merge_timeseries(config: Configuration, tstype: str) -> None:
     log.info(f'Process {mpiops.rank} writing {len(process_tifs)} {tstype} ' \
              f'time series tifs of total {no_ts_tifs}')
     for i in process_tifs:
-        ts_arr = assemble_tiles(shape, params[C.TMPDIR], tiles, out_type=tstype, index=i)
+        ts_arr = assemble_tiles(shape, config.tmpdir, tiles, out_type=tstype, index=i)
         __save_merged_files(
-            ifgs_dict, config, ts_arr, out_type=tstype, index=i, savenpy=params["savenpy"]
+            ifgs_dict, config, ts_arr, out_type=tstype, index=i, savenpy=config.savenpy
         )
 
     mpiops.comm.barrier()
@@ -315,11 +303,8 @@ def __save_merged_files(ifgs_dict, config: Configuration, array, out_type, index
     """
     Convenience function to save PyRate geotiff and numpy array files
     """
-    # TEMP HACK: Eventually this module needs to be migrated to using Configuration directly.
-    params = config
-
-    ts_dir = params[C.TIMESERIES_DIR]
-    vel_dir = params[C.VELOCITY_DIR]
+    ts_dir = config.timeseries_dir
+    vel_dir = config.velocity_dir
     log.debug(f'Saving PyRate outputs {out_type}')
     gt, md, wkt = ifgs_dict['gt'], ifgs_dict['md'], ifgs_dict['wkt']
     epochlist = ifgs_dict['epochlist']
@@ -339,7 +324,7 @@ def __save_merged_files(ifgs_dict, config: Configuration, array, out_type, index
     md[ifc.DATA_TYPE] = out_type_md_dict[out_type]
 
     # apply LOS projection and sign conversion for these outputs
-    los_proj = params[C.LOS_PROJECTION]
+    los_proj = config.los_projection
 
     if out_type in los_projection_out_types:
         incidence_path = Path(config.geometry_files()['incidence_angle'])
@@ -347,18 +332,18 @@ def __save_merged_files(ifgs_dict, config: Configuration, array, out_type, index
             if los_proj == ifc.LINE_OF_SIGHT:
                 log.info(f"Retaining Line-of-sight signal projection for file {dest}")
             elif los_proj != ifc.LINE_OF_SIGHT:
-                log.info(f"Projecting Line-of-sight signal into "
-                         f"{ifc.LOS_PROJECTION_OPTION[los_proj]} for file {dest}")
+                proj_name = ifc.LOS_PROJECTION_OPTION[los_proj]
+                log.info(f"Projecting Line-of-sight signal into {proj_name} for file {dest}")
             incidence = shared.Geometry(incidence_path)
             incidence.open()
-            array /= los_projection_divisors[los_proj](incidence.data) * params[C.SIGNAL_POLARITY]
+            array /= los_projection_divisors[los_proj](incidence.data) * config.signal_polarity
             md[C.LOS_PROJECTION.upper()] = ifc.LOS_PROJECTION_OPTION[los_proj]
-            md[C.SIGNAL_POLARITY.upper()] = params[C.SIGNAL_POLARITY]
+            md[C.SIGNAL_POLARITY.upper()] = config.signal_polarity
 
     if out_type in error_out_types:  # add n-sigma value to error file metadata
         # TODO: move the multiplication of nsigma and error data here?
-        md[C.VELERROR_NSIG.upper()] = params[C.VELERROR_NSIG]
-        log.info(f"Saving file {dest} with {params[C.VELERROR_NSIG]}-sigma uncertainties")
+        md[C.VELERROR_NSIG.upper()] = config.velerror_nsig
+        log.info(f"Saving file {dest} with {config.velerror_nsig}-sigma uncertainties")
 
     shared.write_output_geotiff(md, gt, wkt, array, dest, np.nan)
 

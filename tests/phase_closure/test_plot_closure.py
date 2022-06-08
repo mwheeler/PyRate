@@ -49,7 +49,7 @@ def test_plot_closure(mexico_cropa_params):
     check_call(f"mpirun -n 3 pyrate prepifg -f {MEXICO_CROPA_CONF}", shell=True)
 
     correct._copy_mlooked(params)
-    correct.__validate_correct_steps(params)
+    correct.validate_correct_steps(params)
     # house keeping
     correct.update_params_with_tiles(params)
     correct.create_ifg_dict(params)

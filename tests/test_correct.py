@@ -37,7 +37,7 @@ def test_unsupported_process_steps_raises(gamma_conf):
 def test_supported_process_steps_dont_raise(gamma_params):
     supported_stpes = ['orbfit', 'refphase', 'mst', 'apscorrect', 'maxvar', 'demerror', 'phase_closure']
     assert all([s in gamma_params['correct'] for s in supported_stpes])
-    correct.__validate_correct_steps(params=gamma_params)
+    correct.validate_correct_steps(gamma_params)
 
 
 @pytest.mark.slow

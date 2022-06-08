@@ -21,7 +21,7 @@ from enum import IntEnum
 import re
 from configparser import ConfigParser
 from pathlib import Path, PurePath
-from typing import Union
+from typing import Union, List
 
 import pyrate.constants as C
 from pyrate.constants import NO_OF_PARALLEL_PROCESSES, sixteen_digits_pattern, \
@@ -29,7 +29,7 @@ from pyrate.constants import NO_OF_PARALLEL_PROCESSES, sixteen_digits_pattern, \
 from pyrate.core import ifgconstants as ifg
 from pyrate.default_parameters import PYRATE_DEFAULT_CONFIGURATION
 from pyrate.core.algorithm import factorise_integer
-from pyrate.core.shared import extract_epochs_from_filename, InputTypes, get_tiles
+from pyrate.core.shared import Tile, extract_epochs_from_filename, InputTypes, get_tiles
 
 
 def set_parameter_value(data_type, input_value, default_value, required, input_name):
@@ -234,11 +234,73 @@ class Configuration:
     velocity_dir: Union[str, Path]
 
     largetifs: bool
+    # option to save numpy arrays
+    savenpy: bool
+    # optional to save of merged tsincr products (not sure why it's an int)
+    savetsincr: int
+    # sign convention for phase data
+    signal_polarity: int
+    # LOS projection
+    los_projection: int  # FIXME: this is an enum...
+    # Number of sigma to report velocity error
+    velerror_nsig: int
 
     # FIXME: We need to proxy this w/ a python-friendly name...
     noDataAveragingThreshold: float
 
     cohmask: bool
+
+    # reference pixel parameters
+    #: INT; Longitude (decimal degrees) of reference pixel, or if left blank a search will be performed
+    refx: int
+    refxfound: int
+    #: INT; Latitude (decimal degrees) of reference pixel, or if left blank a search will be performed
+    refy: int
+    refyfound: int
+    #: INT; Number of reference pixel grid search nodes in x dimension
+    refnx: int
+    #: INT; Number of reference pixel grid search nodes in y dimension
+    refny: int
+    #: INT; Dimension of reference pixel search window (in number of pixels)
+    refchipsize: int
+    #: FLOAT; Minimum fraction of observations required in search window for pixel to be
+    # a viable reference pixel
+    refminfrac: float
+    #: INT (1/2); Reference phase estimation method
+    # 1: median of the whole interferogram
+    # 2: median within the window surrounding the reference pixel)
+    refest: int
+
+    #MAXVAR = 'maxvar'
+    #VCMT = 'vcmt'
+    preread_ifgs: dict
+    tiles: List[Tile]
+    rows: int
+    cols: int
+
+    # phase closure
+    phase_closure: bool
+    #CLOSURE_THR = 'closure_thr'
+    #IFG_DROP_THR = 'ifg_drop_thr'
+    #MIN_LOOPS_PER_IFG = 'min_loops_per_ifg'
+    #MAX_LOOP_LENGTH = 'max_loop_length'
+    #MAX_LOOP_REDUNDANCY = 'max_loop_redundancy'
+    #SUBTRACT_MEDIAN = 'subtract_median'
+
+    # FIXME: Some of the above aren't actually config paraeters, but mutable runtime state!!!!!
+    # - I'm not sure when this behaviour started, but it's a bit dodgy (akin to passing global variables around)
+    #
+    # Examples: refxfound, refyfound, tilesm preread_ifgs
+
+    # Stacking parameters
+    #: FLOAT; Threshold ratio between 'model minus observation' residuals and a-priori observation
+    # standard deviations for stacking estimate acceptance
+    # (otherwise remove furthest outlier and re-iterate)
+    nsig: float
+    #: INT; Number of required observations per pixel for stacking to occur
+    pthr: int
+    #: FLOAT; Maximum allowable standard error for pixels in stacking
+    maxsig: float
 
     # prepifg params: (TODO: Move into PrepIfgConfiguration?)
 
