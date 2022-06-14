@@ -681,7 +681,7 @@ class UnitTestAdaptation:
 
 
 def min_params(out_dir):
-    params = {}
+    params = Configuration(TEST_CONF_GAMMA)
     params[C.OUT_DIR] = out_dir
     params[C.IFG_LKSX] = 1
     params[C.IFG_LKSY] = 1

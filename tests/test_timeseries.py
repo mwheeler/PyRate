@@ -39,14 +39,18 @@ from pyrate.core.timeseries import time_series, linear_rate_pixel, linear_rate_a
 
 
 def default_params():
-    return {C.TIME_SERIES_METHOD: 1,
-            C.TIME_SERIES_PTHRESH: 0,
-            C.TIME_SERIES_SM_ORDER: 2,
-            C.TIME_SERIES_SM_FACTOR: -0.25,
-            C.PARALLEL: 0,
-            C.PROCESSES: 1,
-            C.NAN_CONVERSION: 1,
-            C.NO_DATA_VALUE: 0}
+    config = Configuration(common.TEST_CONF_ROIPAC)
+
+    config.tsmethod = 1
+    config.ts_pthr = 0
+    config.smorder = 2
+    config.smfactor = -0.25
+    config.parallel = 0
+    config.processes = 1
+    config.nan_conversion = True
+    config.noDataValue = 0
+
+    return config
 
 
 class SinglePixelIfg(object):
@@ -105,7 +109,7 @@ class TestTimeSeries:
                      zip(first, second, phase, nan_fraction)]
 
         tsincr, tscum, tsvel = time_series(
-            self.ifgs, params=self.params, vcmt=self.vcmt, mst=None)
+            self.ifgs, self.params, vcmt=self.vcmt, mst=None)
         expected = asarray([[[0.50, 3.0, 4.0, 5.5, 6.5]]])
         assert_array_almost_equal(tscum, expected, decimal=2)
 

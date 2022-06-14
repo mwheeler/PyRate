@@ -233,6 +233,10 @@ class Configuration:
     timeseries_dir: Union[str, Path]
     velocity_dir: Union[str, Path]
 
+    # Number of sigma to report velocity error
+    velerror_nsig: int
+
+
     largetifs: bool
     # option to save numpy arrays
     savenpy: bool
@@ -249,6 +253,8 @@ class Configuration:
     noDataValue: float
     # FIXME: We need to proxy this w/ a python-friendly name...
     noDataAveragingThreshold: float
+    #: BOOL (0/1): Convert no data values to Nan
+    nan_conversion: bool
 
     cohmask: bool
 
@@ -274,7 +280,7 @@ class Configuration:
     refest: int
 
     #MAXVAR = 'maxvar'
-    #VCMT = 'vcmt'
+    vcmt: object # FIXME: np.ndarray typing...
     preread_ifgs: dict
     tiles: List[Tile]
     rows: int
@@ -293,6 +299,16 @@ class Configuration:
     # - I'm not sure when this behaviour started, but it's a bit dodgy (akin to passing global variables around)
     #
     # Examples: refxfound, refyfound, tilesm preread_ifgs
+
+    # Time series parameters
+    #: INT (1/2); Method for time series inversion (1: Laplacian Smoothing; 2: SVD)
+    tsmethod: int  # FIXME: should be an enum
+    #: INT; Number of required input observations per pixel for time series inversion
+    ts_pthr: int
+    #: INT (1/2); Order of Laplacian smoothing operator, first or second order
+    smorder: int
+    #: FLOAT; Laplacian smoothing factor (values used is 10**smfactor)
+    smfactor: float
 
     # Stacking parameters
     #: FLOAT; Threshold ratio between 'model minus observation' residuals and a-priori observation
@@ -321,6 +337,26 @@ class Configuration:
     ifgxlast: float
     #: FLOAT; Maximum latitude for cropping with method 3
     ifgylast: float
+
+    # orbital error correction/parameters
+    #: BOOL (1/0); Perform orbital error correction (1: yes, 0: no)
+    orbfit: bool
+    #: INT (1/2); Method for orbital error correction (1: independent, 2: network)
+    orbfitmethod: int  # FIXME: should be an enum...
+    #: INT (1/2/3) Polynomial order of orbital error model
+    # 1: planar in x and y - 2 parameter model
+    # 2: quadratic in x and y - 5 parameter model
+    # 3: quadratic in x and cubic in y - part-cubic 6 parameter model
+    orbfitdegrees: int
+    #: INT; Multi look factor for orbital error calculation in x dimension
+    orbfitlksx: int
+    #: INT; Multi look factor for orbital error calculation in y dimension
+    orbfitlksy: int
+    #: BOOL (1/0); Estimate interferogram offsets during orbit correction design matrix (1: yes, 0: no)
+    orbfitoffset: bool
+    #: FLOAT; Scaling parameter for orbital correction design matrix
+    orbfitscale: float
+    orbfitintercept: float
 
     # pylint: disable=invalid-name
     # JUSTIFICATION: these are long-established in the code already, out of scope to fix just yet.

@@ -198,7 +198,7 @@ class TestIndependentCorrection:
     def check_correction(self, degree, method, offset, decimal=2):
         orig = array([c.phase_data.copy() for c in self.ifgs])
         exp = [self.alt_orbital_correction(i, degree, offset, scale=100) for i in self.ifgs]
-        params = dict()
+        params = Configuration(common.TEST_CONF_ROIPAC)
         params[C.ORBITAL_FIT_METHOD] = method
         params[C.ORBITAL_FIT_DEGREE] = degree
         params[C.ORBFIT_OFFSET] = offset
@@ -564,7 +564,7 @@ class TestNetworkCorrectionTests:
     @staticmethod
     def verify_corrections(ifgs, exp, deg, intercept):
         # checks orbital correction against unit test version
-        params = dict()
+        params = Configuration(common.TEST_CONF_ROIPAC)
         params[C.ORBITAL_FIT_METHOD] = NETWORK_METHOD
         params[C.ORBITAL_FIT_DEGREE] = deg
         params[C.ORBITAL_FIT_LOOKS_X] = 1
@@ -639,7 +639,7 @@ class TestNetworkCorrectionTestsMultilooking:
 
     def verify_corrections(self, ifgs, exp, deg, intercept):
         # checks orbital correction against unit test version
-        params = dict()
+        params = Configuration(common.TEST_CONF_ROIPAC)
         params[C.ORBITAL_FIT_METHOD] = NETWORK_METHOD
         params[C.ORBITAL_FIT_DEGREE] = deg
         params[C.ORBITAL_FIT_LOOKS_X] = 1

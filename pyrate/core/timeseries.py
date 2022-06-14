@@ -37,7 +37,7 @@ from pyrate.core.logger import pyratelogger as log
 from pyrate.configuration import Configuration, ConfigException
 
 
-def _time_series_setup(ifgs, params, mst=None):
+def _time_series_setup(ifgs, config: Configuration, mst=None):
     """
     Convenience function for setting up time series computation parameters
     """
@@ -49,9 +49,9 @@ def _time_series_setup(ifgs, params, mst=None):
     interp = 0 if mst_module.mst_from_ifgs(ifgs)[1] else 1
 
     # Time Series parameters
-    tsmethod = params[C.TIME_SERIES_METHOD]
+    tsmethod = config.tsmethod
 
-    pthresh, smfactor, smorder = _validate_params(params, tsmethod)
+    pthresh, smfactor, smorder = _validate_params(config, tsmethod)
 
     epochlist = get_epochs(ifgs)[0]
     nrows = ifgs[0].nrows
@@ -84,23 +84,23 @@ def _time_series_setup(ifgs, params, mst=None):
         mst, ncols, nrows, nvelpar, span, tsvel_matrix
 
 
-def _validate_params(params, tsmethod):
+def _validate_params(config: Configuration, tsmethod):
     """
     Helper function to validate supplied time series parameters
     """
-    if tsmethod == 1 and params[C.TIME_SERIES_SM_ORDER] is None:
+    if tsmethod == 1 and config.smorder is None:
         _missing_option_error(C.TIME_SERIES_SM_ORDER)
     else:
-        smorder = params[C.TIME_SERIES_SM_ORDER]
-    if tsmethod == 1 and params[C.TIME_SERIES_SM_FACTOR] is None:
+        smorder = config.smorder
+    if tsmethod == 1 and config.smfactor is None:
         _missing_option_error(C.TIME_SERIES_SM_FACTOR)
     else:
-        smfactor = np.power(10, params[C.TIME_SERIES_SM_FACTOR])
+        smfactor = np.power(10, config.smfactor)
 
-    if params[C.TIME_SERIES_PTHRESH] is None:
+    if config.ts_pthr is None:
         _missing_option_error(C.TIME_SERIES_PTHRESH)
     else:
-        pthresh = params[C.TIME_SERIES_PTHRESH]
+        pthresh = config.ts_pthr
         if pthresh < 0.0 or pthresh > 1000:
             raise TimeSeriesError(
                 "minimum number of coherent observations for a pixel"
@@ -108,7 +108,7 @@ def _validate_params(params, tsmethod):
     return pthresh, smfactor, smorder
 
 
-def time_series(ifgs, params, vcmt=None, mst=None):
+def time_series(ifgs, config: Configuration, vcmt=None, mst=None):
     """
     Calculates the displacement time series from the given interferogram
     network. Solves the linear least squares system using either the SVD
@@ -123,7 +123,7 @@ def time_series(ifgs, params, vcmt=None, mst=None):
         - *nepochs* is the number of unique epochs (dates)
 
     :param list ifgs: list of interferogram class objects.
-    :param dict params: Dictionary of configuration parameters
+    :param Configuration config: The workflow configuration parameters
     :param ndarray vcmt: Positive definite temporal variance covariance matrix
     :param ndarray mst: [optional] Minimum spanning tree array.
 
@@ -136,7 +136,7 @@ def time_series(ifgs, params, vcmt=None, mst=None):
     """
     b0_mat, interp, p_thresh, sm_factor, sm_order, ts_method, ifg_data, mst, \
         ncols, nrows, nvelpar, span, tsvel_matrix = \
-        _time_series_setup(ifgs, params, mst)
+        _time_series_setup(ifgs, config, mst)
 
     # pixel-by-pixel calculation.
     # nested loops to loop over the 2 image dimensions
@@ -331,7 +331,7 @@ def linear_rate_pixel(y, t):
     return linrate, intercept, r_value**2, std_err, int(nsamp)
 
 
-def linear_rate_array(tscuml, ifgs, params):
+def linear_rate_array(tscuml, ifgs, config: Configuration):
     """
     This function loops over all pixels in a 3-dimensional cumulative
     time series array and calculates the linear rate (line of best fit)
@@ -339,7 +339,7 @@ def linear_rate_array(tscuml, ifgs, params):
 
     :param ndarray tscuml: 3-dimensional cumulative time series array
     :param list ifgs: list of interferogram class objects.
-    :param dict params: Configuration parameters
+    :param Configuration config: The workflow configuration parameters
 
     :return: linrate: Linear rate map from linear regression
     :rtype: ndarray
@@ -352,7 +352,7 @@ def linear_rate_array(tscuml, ifgs, params):
     :return: samples: Number of observations used in linear regression for each pixel
     :rtype: ndarray
     """
-    _, _, _, _, _, _, _, _, ncols, nrows, _, _, _ = _time_series_setup(ifgs, params)
+    _, _, _, _, _, _, _, _, ncols, nrows, _, _, _ = _time_series_setup(ifgs, config)
 
     epochlist = get_epochs(ifgs)[0]
     # get cumulative time per epoch
@@ -376,7 +376,7 @@ def linear_rate_array(tscuml, ifgs, params):
             linrate[i, j], intercept[i, j], rsquared[i, j], error[i, j], samples[i, j] = \
                 linear_rate_pixel(tscuml[i, j, :], t)
 
-    return linrate, intercept, rsquared, params[C.VELERROR_NSIG]*error, samples
+    return linrate, intercept, rsquared, config.velerror_nsig*error, samples
 
 
 def _missing_option_error(option):
@@ -393,42 +393,40 @@ class TimeSeriesError(Exception):
     """
 
 
-def timeseries_calc_wrapper(params):
+def timeseries_calc_wrapper(config: Configuration):
     """
     Wrapper for time series calculation on a set of tiles.
     """
-    if params[C.TIME_SERIES_METHOD] == 1:
+    if config.tsmethod == 1:
         log.info('Calculating time series using Laplacian Smoothing method')
-    elif params[C.TIME_SERIES_METHOD] == 2:
+    elif config.tsmethod == 2:
         log.info('Calculating time series using SVD method')
-    if not Configuration.vcmt_path(params).exists():
+    if not Configuration.vcmt_path(config).exists():
         raise FileNotFoundError("VCMT is not found on disc. Have you run the 'correct' step?")
-    params[C.PREREAD_IFGS] = cp.load(open(Configuration.preread_ifgs(params), 'rb'))
-    params[C.VCMT] = np.load(Configuration.vcmt_path(params))
-    params[C.TILES] = Configuration.get_tiles(params)
-    tiles_split(__calc_time_series_for_tile, params)
+    config.preread_ifgs = cp.load(open(Configuration.preread_ifgs(config), 'rb'))
+    config.vcmt = np.load(Configuration.vcmt_path(config))
+    config.tiles = Configuration.get_tiles(config)
+    tiles_split(__calc_time_series_for_tile, config)
     log.debug("Finished timeseries calc!")
 
 
-def __calc_time_series_for_tile(tile, params):
+def __calc_time_series_for_tile(tile, config: Configuration):
     """
     Wrapper for time series calculation on a single tile
     """
-    preread_ifgs = params[C.PREREAD_IFGS]
-    vcmt = params[C.VCMT]
-    ifg_paths = [ifg_path.tmp_sampled_path for ifg_path in params[C.INTERFEROGRAM_FILES]]
-    output_dir = params[C.TMPDIR]
+    ifg_paths = [ifg_path.tmp_sampled_path for ifg_path in config.interferogram_files]
+    output_dir = config.tmpdir
     log.debug(f"Calculating time series for tile {tile.index}")
-    ifg_parts = [shared.IfgPart(p, tile, preread_ifgs, params) for p in ifg_paths]
-    mst_tile = np.load(Configuration.mst_path(params, tile.index))
-    tsincr, tscuml, _ = time_series(ifg_parts, params, vcmt, mst_tile)
+    ifg_parts = [shared.IfgPart(p, tile, config.preread_ifgs, config) for p in ifg_paths]
+    mst_tile = np.load(Configuration.mst_path(config, tile.index))
+    tsincr, tscuml, _ = time_series(ifg_parts, config, config.vcmt, mst_tile)
     np.save(file=os.path.join(output_dir, f'tscuml_{tile.index}.npy'), arr=tscuml)
     # optional save of tsincr npy tiles
-    if params["savetsincr"] == 1:
+    if config.savetsincr == 1:
         np.save(file=os.path.join(output_dir, f'tsincr_{tile.index}.npy'), arr=tsincr)
     tscuml = np.insert(tscuml, 0, 0, axis=2)  # add zero epoch to tscuml 3D array
     log.info('Calculating linear regression of cumulative time series')
-    linrate, intercept, r_squared, std_err, samples = linear_rate_array(tscuml, ifg_parts, params)
+    linrate, intercept, r_squared, std_err, samples = linear_rate_array(tscuml, ifg_parts, config)
     np.save(file=os.path.join(output_dir, f'linear_rate_{tile.index}.npy'), arr=linrate)
     np.save(file=os.path.join(output_dir, f'linear_intercept_{tile.index}.npy'), arr=intercept)
     np.save(file=os.path.join(output_dir, f'linear_rsquared_{tile.index}.npy'), arr=r_squared)

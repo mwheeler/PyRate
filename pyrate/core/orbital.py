@@ -31,7 +31,7 @@ from pyrate.core import shared, ifgconstants as ifc, prepifg_helper, mst, mpiops
 from pyrate.core.shared import nanmedian, Ifg, iterable_split
 from pyrate.core.logger import pyratelogger as log
 from pyrate.prepifg import find_header
-from pyrate.configuration import MultiplePaths
+from pyrate.configuration import Configuration, MultiplePaths
 # Orbital correction tasks
 #
 # TODO: options for multilooking
@@ -70,7 +70,7 @@ QUADRATIC = C.QUADRATIC
 PART_CUBIC = C.PART_CUBIC
 
 
-def remove_orbital_error(ifgs: List, params: dict) -> None:
+def remove_orbital_error(ifgs: List, config: Configuration) -> None:
     """
     Wrapper function for PyRate orbital error removal functionality.
 
@@ -79,10 +79,10 @@ def remove_orbital_error(ifgs: List, params: dict) -> None:
     to a minimum spanning tree network.
     """
     ifg_paths = [i.data_path for i in ifgs] if isinstance(ifgs[0], Ifg) else ifgs
-    degree = params[C.ORBITAL_FIT_DEGREE]
-    method = params[C.ORBITAL_FIT_METHOD]
-    orbfitlksx = params[C.ORBITAL_FIT_LOOKS_X]
-    orbfitlksy = params[C.ORBITAL_FIT_LOOKS_Y]
+    degree = config.orbfitdegrees
+    method = config.orbfitmethod
+    orbfitlksx = config.orbfitlksx
+    orbfitlksy = config.orbfitlksy
 
     # Sanity check of the orbital params
     if not isinstance(orbfitlksx, int) or not isinstance(orbfitlksy, int):
@@ -103,7 +103,7 @@ def remove_orbital_error(ifgs: List, params: dict) -> None:
                  f'factors of X = {orbfitlksx} and Y = {orbfitlksy}')
 
     if method == INDEPENDENT_METHOD:
-        iterable_split(independent_orbital_correction, ifg_paths, params)
+        iterable_split(independent_orbital_correction, ifg_paths, config)
 
     elif method == NETWORK_METHOD:
         # Here we do all the multilooking in one process, but in memory
@@ -119,46 +119,46 @@ def remove_orbital_error(ifgs: List, params: dict) -> None:
         # iterable_split function, which will use mpi but can fall back on
         # single process based on the flag for the multiprocessing side.
         if mpiops.rank == MAIN_PROCESS:
-            mlooked = __create_multilooked_datasets(params)
+            mlooked = __create_multilooked_datasets(config)
             _validate_mlooked(mlooked, ifg_paths)
-            network_orbital_correction(ifg_paths, params, mlooked)
+            network_orbital_correction(ifg_paths, config, mlooked)
     else:
         raise OrbitalError("Unrecognised orbital correction method")
 
 
-def __create_multilooked_datasets(params):
-    exts, ifg_paths, multi_paths = __extents_from_params(params)
+def __create_multilooked_datasets(config: Configuration):
+    exts, ifg_paths, multi_paths = __extents_from_params(config)
     mlooked_datasets = [
-        _create_mlooked_dataset(m, i, exts, params) for m, i in zip(multi_paths, ifg_paths)
+        _create_mlooked_dataset(m, i, exts, config) for m, i in zip(multi_paths, ifg_paths)
     ]
 
     mlooked = [Ifg(m) for m in mlooked_datasets]
     for m in mlooked:
         m.initialize()
-        shared.nan_and_mm_convert(m, params)
+        shared.nan_and_mm_convert(m, config)
     return mlooked
 
 
-def __extents_from_params(params):
-    multi_paths = params[C.INTERFEROGRAM_FILES]
+def __extents_from_params(config: Configuration):
+    multi_paths = config.interferogram_files
     ifg_paths = [p.tmp_sampled_path for p in multi_paths]
     rasters = [shared.dem_or_ifg(r) for r in ifg_paths]
     crop_opt = prepifg_helper.ALREADY_SAME_SIZE
-    xlooks = params[C.ORBITAL_FIT_LOOKS_X]
-    ylooks = params[C.ORBITAL_FIT_LOOKS_Y]
+    xlooks = config.orbfitlksx
+    ylooks = config.orbfitlksy
     exts = prepifg_helper.get_analysis_extent(crop_opt, rasters, xlooks, ylooks, None)
     return exts, ifg_paths, multi_paths
 
 
-def _create_mlooked_dataset(multi_path, ifg_path, exts, params):
+def _create_mlooked_dataset(multi_path, ifg_path, exts, config: Configuration):
     '''
     Wrapper to generate a multi-looked dataset for a single ifg
     '''
-    header = find_header(multi_path, params)
-    thresh = params[C.NO_DATA_AVERAGING_THRESHOLD]
+    header = find_header(multi_path, config)
+    thresh = config.noDataAveragingThreshold
     crop_opt = prepifg_helper.ALREADY_SAME_SIZE
-    xlooks = params[C.ORBITAL_FIT_LOOKS_X]
-    ylooks = params[C.ORBITAL_FIT_LOOKS_Y]
+    xlooks = config.orbfitlksx
+    ylooks = config.orbfitlksy
     out_path = tempfile.mktemp()
     log.debug(f'Multi-looking {ifg_path} with factors' \
                 'X = {xlooks} and Y = {ylooks} for orbital correction')
@@ -203,7 +203,7 @@ def _get_num_params(degree, intercept: Optional[bool] = False):
     return nparams
 
 
-def independent_orbital_correction(ifg_path, params):
+def independent_orbital_correction(ifg_path, config: Configuration):
     """
     Calculates and removes an orbital error surface from a single independent
     interferogram.
@@ -211,16 +211,16 @@ def independent_orbital_correction(ifg_path, params):
     Warning: This will write orbital error corrected phase_data to the ifg.
 
     :param Ifg class instance ifg: the interferogram to be corrected
-    :param dict params: dictionary of configuration parameters
+    :param Configuration config: The workflow configuration parameters
 
     :return: None - interferogram phase data is updated and saved to disk
     """
     log.debug(f"Orbital correction of {ifg_path}")
-    degree = params[C.ORBITAL_FIT_DEGREE]
-    offset = params[C.ORBFIT_OFFSET]
-    intercept = params[C.ORBFIT_INTERCEPT]
-    xlooks = params[C.ORBITAL_FIT_LOOKS_X]
-    ylooks = params[C.ORBITAL_FIT_LOOKS_Y]
+    degree = config.orbfitdegrees
+    offset = config.orbfitoffset
+    intercept = config.orbfitintercept
+    xlooks = config.orbfitlksx
+    ylooks = config.orbfitlksy
 
     ifg0 = shared.Ifg(ifg_path) if isinstance(ifg_path, str) else ifg_path
 
@@ -228,12 +228,12 @@ def independent_orbital_correction(ifg_path, params):
     fullres_dm = get_design_matrix(ifg0, degree, intercept=intercept)
 
     ifg = shared.dem_or_ifg(ifg_path) if isinstance(ifg_path, str) else ifg_path
-    multi_path = MultiplePaths(ifg.data_path, params)
-    orb_on_disc = MultiplePaths.orb_error_path(ifg.data_path, params)
+    multi_path = MultiplePaths(ifg.data_path, config)
+    orb_on_disc = MultiplePaths.orb_error_path(ifg.data_path, config)
 
     if not ifg.is_open:
         ifg.open()
-    shared.nan_and_mm_convert(ifg, params)
+    shared.nan_and_mm_convert(ifg, config)
     fullres_ifg = ifg  # keep a backup
     fullres_phase = fullres_ifg.phase_data
 
@@ -243,11 +243,11 @@ def independent_orbital_correction(ifg_path, params):
     else:
         # Multi-look the ifg data if either X or Y is greater than 1
         if (xlooks > 1) or (ylooks > 1):
-            exts, _, _ = __extents_from_params(params)
-            mlooked = _create_mlooked_dataset(multi_path, ifg.data_path, exts, params)
+            exts, _, _ = __extents_from_params(config)
+            mlooked = _create_mlooked_dataset(multi_path, ifg.data_path, exts, config)
             ifg = Ifg(mlooked) # multi-looked Ifg object
             ifg.initialize()
-            shared.nan_and_mm_convert(ifg, params)
+            shared.nan_and_mm_convert(ifg, config)
 
         # vectorise phase data, keeping NODATA
         vphase = reshape(ifg.phase_data, ifg.num_cells)
@@ -270,7 +270,7 @@ def independent_orbital_correction(ifg_path, params):
     fullres_ifg.phase_data -= orbital_correction
 
     # set orbfit meta tag and save phase to file
-    _save_orbital_error_corrected_phase(fullres_ifg, params)
+    _save_orbital_error_corrected_phase(fullres_ifg, config)
 
 
 def __orb_correction(fullres_dm, mlooked_dm, fullres_phase, mlooked_phase, offset=False):
@@ -303,7 +303,7 @@ def __orb_inversion(design_matrix, data):
     return pinv(B) @ d
 
 
-def network_orbital_correction(ifg_paths, params, m_ifgs: Optional[List] = None):
+def network_orbital_correction(ifg_paths, config: Configuration, m_ifgs: Optional[List] = None):
     """
     This algorithm implements a network inversion to determine orbital
     corrections for a set of interferograms forming a connected network.
@@ -311,22 +311,22 @@ def network_orbital_correction(ifg_paths, params, m_ifgs: Optional[List] = None)
     Warning: This will write orbital error corrected phase_data to the ifgs.
 
     :param list ifg_paths: List of Ifg class objects reduced to a minimum spanning tree network
-    :param dict params: dictionary of configuration parameters
+    :param Configuration config: The workflow configuration parameters
     :param list m_ifgs: The list of multilooked Ifg class objects
         (sequence must be multilooked versions of 'ifg_paths' arg)
 
     :return: None - interferogram phase data is updated and saved to disk
     """
     # pylint: disable=too-many-locals, too-many-arguments
-    offset = params[C.ORBFIT_OFFSET]
-    degree = params[C.ORBITAL_FIT_DEGREE]
-    preread_ifgs = params[C.PREREAD_IFGS]
-    intercept = params[C.ORBFIT_INTERCEPT]
-    scale = params[C.ORBFIT_SCALE]
+    offset = config.orbfitoffset
+    degree = config.orbfitdegrees
+    preread_ifgs = config.preread_ifgs
+    intercept = config.orbfitintercept
+    scale = config.orbfitscale
 
     # all orbit corrections available?
     if isinstance(ifg_paths[0], str):
-        if __check_and_apply_orberrors_found_on_disc(ifg_paths, params):
+        if __check_and_apply_orberrors_found_on_disc(ifg_paths, config):
             log.warning("Reusing orbfit errors from previous run!!!")
             return
         # all corrections are available in numpy files already saved - return
@@ -364,8 +364,8 @@ def network_orbital_correction(ifg_paths, params, m_ifgs: Optional[List] = None)
             # are paths
             i = Ifg(i)
             i.open(readonly=False)
-            shared.nan_and_mm_convert(i, params)
-        _remove_network_orb_error(coefs, dm, i, ids, offset, params)
+            shared.nan_and_mm_convert(i, config)
+        _remove_network_orb_error(coefs, dm, i, ids, offset, config)
 
 def calc_network_orb_correction(src_ifgs, degree, scale, nepochs, intercept=False):
     """
@@ -393,8 +393,8 @@ def calc_network_orb_correction(src_ifgs, degree, scale, nepochs, intercept=Fals
     coefs = [orbparams[i:i+ncoef] for i in range(0, nepochs * ncoef, ncoef)]
     return coefs
 
-def __check_and_apply_orberrors_found_on_disc(ifg_paths, params):
-    saved_orb_err_paths = [MultiplePaths.orb_error_path(ifg_path, params) for ifg_path in ifg_paths]
+def __check_and_apply_orberrors_found_on_disc(ifg_paths, config: Configuration):
+    saved_orb_err_paths = [MultiplePaths.orb_error_path(ifg_path, config) for ifg_path in ifg_paths]
     for p, i in zip(saved_orb_err_paths, ifg_paths):
         if p.exists():
             orb = np.load(p)
@@ -402,20 +402,20 @@ def __check_and_apply_orberrors_found_on_disc(ifg_paths, params):
                 # are paths
                 ifg = Ifg(i)
                 ifg.open(readonly=False)
-                shared.nan_and_mm_convert(ifg, params)
+                shared.nan_and_mm_convert(ifg, config)
             else:
                 ifg = i
             ifg.phase_data -= orb
             # set orbfit meta tag and save phase to file
-            _save_orbital_error_corrected_phase(ifg, params)
+            _save_orbital_error_corrected_phase(ifg, config)
     return all(p.exists() for p in saved_orb_err_paths)
 
 
-def _remove_network_orb_error(coefs, dm, ifg, ids, offset, params):
+def _remove_network_orb_error(coefs, dm, ifg, ids, offset, config: Configuration):
     """
     remove network orbital error from input interferograms
     """
-    saved_orb_err_path = MultiplePaths.orb_error_path(ifg.data_path, params)
+    saved_orb_err_path = MultiplePaths.orb_error_path(ifg.data_path, config)
     orb = dm.dot(coefs[ids[ifg.second]] - coefs[ids[ifg.first]])
     orb = orb.reshape(ifg.shape)
     # Estimate the offset of the interferogram as the median of ifg minus model
@@ -429,22 +429,22 @@ def _remove_network_orb_error(coefs, dm, ifg, ids, offset, params):
     # save orb error on disc
     np.save(file=saved_orb_err_path, arr=orb)
     # set orbfit meta tag and save phase to file
-    _save_orbital_error_corrected_phase(ifg, params)
+    _save_orbital_error_corrected_phase(ifg, config)
 
 
-def _save_orbital_error_corrected_phase(ifg, params):
+def _save_orbital_error_corrected_phase(ifg, config: Configuration):
     """
     Convenience function to update metadata and save latest phase after
     orbital fit correction
     """
     # set orbfit tags after orbital error correction
-    fit_method = __methods_as_string(params[C.ORBITAL_FIT_METHOD])
-    fit_degree = __degrees_as_string(params[C.ORBITAL_FIT_DEGREE])
+    fit_method = __methods_as_string(config.orbfitmethod)
+    fit_degree = __degrees_as_string(config.orbfitdegrees)
 
     ifg.dataset.SetMetadataItem(ifc.PYRATE_ORB_METHOD, fit_method)
     ifg.dataset.SetMetadataItem(ifc.PYRATE_ORB_DEG, fit_degree)
-    ifg.dataset.SetMetadataItem(ifc.PYRATE_ORB_XLOOKS, str(params[C.ORBITAL_FIT_LOOKS_X]))
-    ifg.dataset.SetMetadataItem(ifc.PYRATE_ORB_YLOOKS, str(params[C.ORBITAL_FIT_LOOKS_Y]))
+    ifg.dataset.SetMetadataItem(ifc.PYRATE_ORB_XLOOKS, str(config.orbfitlksx))
+    ifg.dataset.SetMetadataItem(ifc.PYRATE_ORB_YLOOKS, str(config.orbfitlksy))
     ifg.dataset.SetMetadataItem(ifc.PYRATE_ORBITAL_ERROR, ifc.ORB_REMOVED)
     ifg.write_modified_phase()
     ifg.close()
@@ -583,17 +583,16 @@ class OrbitalError(Exception):
     """
 
 
-def orb_fit_calc_wrapper(params: dict) -> None:
+def orb_fit_calc_wrapper(config: Configuration) -> None:
     """
     MPI wrapper for orbital fit correction
     """
-    multi_paths = params[C.INTERFEROGRAM_FILES]
-    if not params[C.ORBITAL_FIT]:
+    if not config.orbfit:
         log.info('Orbital correction not required!')
         return
-    ifg_paths = [p.tmp_sampled_path for p in multi_paths]
-    remove_orbital_error(ifg_paths, params)
+    ifg_paths = [p.tmp_sampled_path for p in config.interferogram_files]
+    remove_orbital_error(ifg_paths, config)
     mpiops.comm.barrier()
     # update phase_data saved in tiled numpy files
-    shared.save_numpy_phase(ifg_paths, params)
+    shared.save_numpy_phase(ifg_paths, config)
     log.debug('Finished Orbital error correction')
