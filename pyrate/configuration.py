@@ -215,6 +215,12 @@ class Configuration:
     refchipsize: int
 
     # general parameters:
+    
+    #: STR; Name of the DEM header file
+    demHeaderFile: str
+
+    #: STR; Name of the file list containing the pool of available header files
+    hdrfilelist: str
 
     #: (0/1/2); The interferogram processor used (0==ROIPAC, 1==GAMMA, 2: GEOTIF)
     processor: int # TODO: Enum...
@@ -279,7 +285,9 @@ class Configuration:
     # 2: median within the window surrounding the reference pixel)
     refest: int
 
-    #MAXVAR = 'maxvar'
+    # FIXME: The following don't seem to be configuration params at all!
+    # - they're runtime state... and should live else where.
+    maxvar: object  # FIXME: ???
     vcmt: object # FIXME: np.ndarray typing...
     preread_ifgs: dict
     tiles: List[Tile]
@@ -288,12 +296,12 @@ class Configuration:
 
     # phase closure
     phase_closure: bool
-    #CLOSURE_THR = 'closure_thr'
-    #IFG_DROP_THR = 'ifg_drop_thr'
-    #MIN_LOOPS_PER_IFG = 'min_loops_per_ifg'
-    #MAX_LOOP_LENGTH = 'max_loop_length'
-    #MAX_LOOP_REDUNDANCY = 'max_loop_redundancy'
-    #SUBTRACT_MEDIAN = 'subtract_median'
+    closure_thr: float
+    ifg_drop_thr: float
+    min_loops_per_ifg: int
+    max_loop_length: int
+    max_loop_redundancy: int
+    subtract_median: bool
 
     # FIXME: Some of the above aren't actually config paraeters, but mutable runtime state!!!!!
     # - I'm not sure when this behaviour started, but it's a bit dodgy (akin to passing global variables around)
@@ -380,6 +388,16 @@ class Configuration:
     #: FLOAT; Scaling parameter for orbital correction design matrix
     orbfitscale: float
     orbfitintercept: float
+
+
+    # atmospheric error correction parameters NOT CURRENTLY USED
+    #APS_CORRECTION = 'apscorrect'
+    #APS_METHOD = 'apsmethod'
+    incidencemap: str
+    APS_INCIDENCE_EXT: str
+    elevationmap: str
+    APS_ELEVATION_EXT: str
+
 
     # pylint: disable=invalid-name
     # JUSTIFICATION: these are long-established in the code already, out of scope to fix just yet.

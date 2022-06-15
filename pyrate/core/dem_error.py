@@ -33,20 +33,20 @@ from pyrate.configuration import MultiplePaths, Configuration
 from pyrate.merge import assemble_tiles
 
 
-def dem_error_calc_wrapper(params: dict) -> None:
+def dem_error_calc_wrapper(config: Configuration) -> None:
     """
     MPI wrapper for DEM error correction
-    :param params: Dictionary of PyRate configuration parameters.
+    :param config: The PyRate configuration parameters.
     """
-    if not params[C.DEMERROR]:
+    if not config.demerror:
         log.info("DEM error correction not required")
         return
 
     # geometry information needed to calculate Bperp for each pixel using first IFG in list
-    ifg_paths = [ifg_path.tmp_sampled_path for ifg_path in params[C.INTERFEROGRAM_FILES]]
+    ifg_paths = [ifg_path.tmp_sampled_path for ifg_path in config.interferogram_files]
 
     # check if DEM error correction is already available
-    if mpiops.run_once(__check_and_apply_demerrors_found_on_disc, ifg_paths, params):
+    if mpiops.run_once(__check_and_apply_demerrors_found_on_disc, ifg_paths, config):
         log.warning("Reusing DEM error correction from previous run!!!")
     else:
         log.info("Calculating DEM error correction")
@@ -61,7 +61,7 @@ def dem_error_calc_wrapper(params: dict) -> None:
             log.warning("Geometry calculations are not implemented for ROI_PAC")
             return
 
-        if params[C.BASE_FILE_LIST] is None:
+        if config.basefilelist is None:
             log.warning("No baseline files supplied: DEM error has not been computed")
             return
 
@@ -71,16 +71,16 @@ def dem_error_calc_wrapper(params: dict) -> None:
         # the following code is a quick way to do the bperp calculation, but is not identical to
         # the GAMMA output where the near range of the first SLC is used for each pair.
         # calculate look angle for interferograms (using the Near Range of the first SLC)
-        # look_angle = geometry.calc_local_geometry(ifg0, None, rg, lon, lat, params)
+        # look_angle = geometry.calc_local_geometry(ifg0, None, rg, lon, lat, config)
         # bperp = geometry.calc_local_baseline(ifg0, az, look_angle)
 
         # split full arrays in to tiles for parallel processing
-        tiles_split(_process_dem_error_per_tile, params)
+        tiles_split(_process_dem_error_per_tile, config)
 
-        preread_ifgs = params[C.PREREAD_IFGS]
+        preread_ifgs = config.preread_ifgs
         # write dem error and correction values to file
-        mpiops.run_once(_write_dem_errors, ifg_paths, params, preread_ifgs)
-        shared.save_numpy_phase(ifg_paths, params)
+        mpiops.run_once(_write_dem_errors, ifg_paths, config, preread_ifgs)
+        shared.save_numpy_phase(ifg_paths, config)
 
         log.debug('Finished DEM error correction step')
 
@@ -89,12 +89,9 @@ def _process_dem_error_per_tile(tile: Tile, config: Configuration) -> None:
     """
     Convenience function for processing DEM error in tiles
     :param tile: pyrate.core.shared.Tile Class object.
-    :param params: Dictionary of PyRate configuration parameters.
+    :param config: The PyRate configuration parameters.
     """
-    # TEMP HACK: Eventually this module needs to be migrated to using Configuration directly.
-    params = config
-
-    ifg_paths = [ifg_path.tmp_sampled_path for ifg_path in params[C.INTERFEROGRAM_FILES]]
+    ifg_paths = [ifg_path.tmp_sampled_path for ifg_path in config.interferogram_files]
     ifg0_path = ifg_paths[0]
     ifg0 = Ifg(ifg0_path)
     ifg0.open(readonly=True)
@@ -106,11 +103,11 @@ def _process_dem_error_per_tile(tile: Tile, config: Configuration) -> None:
     geom_az = Geometry(rdc_az_file)
     rdc_rg_file = geom_files['rdc_range']
     geom_rg = Geometry(rdc_rg_file)
-    dem_file = params[C.DEM_FILE_PATH].sampled_path
+    dem_file = config.dem_file.sampled_path
     dem = DEM(dem_file)
-    preread_ifgs = params[C.PREREAD_IFGS]
-    threshold = params[C.DE_PTHR]
-    ifg_parts = [shared.IfgPart(p, tile, preread_ifgs, params) for p in ifg_paths]
+    preread_ifgs = config.preread_ifgs
+    threshold = config.de_pthr
+    ifg_parts = [shared.IfgPart(p, tile, preread_ifgs, config) for p in ifg_paths]
     lon_parts = lon(tile)
     lat_parts = lat(tile)
     az_parts = geom_az(tile)
@@ -121,9 +118,9 @@ def _process_dem_error_per_tile(tile: Tile, config: Configuration) -> None:
                                                              lat_parts, lon_parts, dem_parts)
     log.debug(f"Calculating DEM error for tile {tile.index} during DEM error correction")
 
-    tmp_dir = Path(params[C.TMPDIR])
+    tmp_dir = Path(config.tmpdir)
 
-    # mst_tile = np.load(Configuration.mst_path(params, tile.index))
+    # mst_tile = np.load(Configuration.mst_path(config, tile.index))
     # calculate the DEM error estimate and the correction values for each IFG
     # current implementation uses the look angle and range distance matrix of
     # the primary SLC in the last IFG
@@ -278,16 +275,16 @@ def _per_tile_setup(ifgs: list) -> Tuple[np.ndarray, np.ndarray, int, int, np.nd
     return ifg_data, mst, ncols, nrows, ifg_time_span
 
 
-def _write_dem_errors(ifg_paths: list, params: dict, preread_ifgs: dict) -> None:
+def _write_dem_errors(ifg_paths: list, config: Configuration, preread_ifgs: dict) -> None:
     """
     Convenience function for writing DEM error (one file) and DEM error correction
     for each IFG to disc.
 
     :param ifg_paths: List of interferogram class objects.
-    :param params: Dictionary of PyRate configuration parameters.
+    :param config: The PyRate configuration parameters.
     :param preread_ifgs: Dictionary of interferogram metadata.
     """
-    tiles = params[C.TILES]
+    tiles = config.tiles
 
     # re-assemble tiles and save into dem_error dir
     shape = preread_ifgs[ifg_paths[0]].shape
@@ -295,15 +292,15 @@ def _write_dem_errors(ifg_paths: list, params: dict, preread_ifgs: dict) -> None
     # save dem error as geotiff file in out directory
     gt, md, wkt = shared.get_geotiff_header_info(ifg_paths[0])
     md[ifc.DATA_TYPE] = ifc.DEM_ERROR
-    dem_error = assemble_tiles(shape, params[C.TMPDIR], tiles, out_type='dem_error')
-    dem_error_file = os.path.join(params[C.DEM_ERROR_DIR], 'dem_error.tif')
+    dem_error = assemble_tiles(shape, config.tmpdir, tiles, out_type='dem_error')
+    dem_error_file = os.path.join(config.dem_error_dir, 'dem_error.tif')
     shared.remove_file_if_exists(dem_error_file)
     shared.write_output_geotiff(md, gt, wkt, dem_error, dem_error_file, np.nan)
 
     # read the average bperp vals for each ifg and each tile
     bperp = np.empty(shape=(len(tiles), len(ifg_paths)), dtype=np.float64)
     for t in tiles:
-        bperp_file = Path(join(params[C.TMPDIR], 'bperp_avg_' + str(t.index) + '.npy'))
+        bperp_file = Path(join(config.tmpdir, 'bperp_avg_' + str(t.index) + '.npy'))
         arr = np.load(file=bperp_file)
         bperp[t.index, :] = arr
 
@@ -312,15 +309,15 @@ def _write_dem_errors(ifg_paths: list, params: dict, preread_ifgs: dict) -> None
     for ifg_path in ifg_paths:
         ifg = Ifg(ifg_path)
         ifg.open()
-        shared.nan_and_mm_convert(ifg, params) # ensure we have phase data in mm
+        shared.nan_and_mm_convert(ifg, config) # ensure we have phase data in mm
         # read dem error correction file from tmpdir
         dem_error_correction_ifg = assemble_tiles(
-            shape, params[C.TMPDIR], tiles,
+            shape, config.tmpdir, tiles,
             out_type='dem_error_correction', index=idx
         )
         # calculate average bperp value across all tiles for the ifg
         bperp_val = np.nanmean(bperp[:, idx])
-        dem_error_correction_on_disc = MultiplePaths.dem_error_path(ifg.data_path, params)
+        dem_error_correction_on_disc = MultiplePaths.dem_error_path(ifg.data_path, config)
         np.save(file=dem_error_correction_on_disc, arr=dem_error_correction_ifg)
         idx += 1
 
@@ -329,16 +326,16 @@ def _write_dem_errors(ifg_paths: list, params: dict, preread_ifgs: dict) -> None
         _save_dem_error_corrected_phase(ifg, bperp_val)
 
 
-def __check_and_apply_demerrors_found_on_disc(ifg_paths: list, params: dict) -> bool:
+def __check_and_apply_demerrors_found_on_disc(ifg_paths: list, config: Configuration) -> bool:
     """
     Convenience function to check if DEM error correction files have already been
     produced in a previous run
 
     :param ifg_paths: List of interferogram class objects.
-    :param params: Dictionary of PyRate configuration parameters.
+    :param config: The PyRate configuration parameters.
     :return: bool value: True if dem error files found on disc, otherwise False.
     """
-    saved_dem_err_paths = [MultiplePaths.dem_error_path(ifg_path, params) for ifg_path in ifg_paths]
+    saved_dem_err_paths = [MultiplePaths.dem_error_path(ifg_path, config) for ifg_path in ifg_paths]
     for d, i in zip(saved_dem_err_paths, ifg_paths):
         if d.exists():
             dem_corr = np.load(d)

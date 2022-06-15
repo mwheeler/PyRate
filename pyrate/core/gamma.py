@@ -26,7 +26,7 @@ import struct
 import numpy as np
 
 import pyrate.constants as C
-from pyrate.configuration import ConfigException, parse_namelist
+from pyrate.configuration import ConfigException, Configuration, parse_namelist
 import pyrate.core.ifgconstants as ifc
 from pyrate.constants import sixteen_digits_pattern, BASELINE_FILE_PATHS, BASE_FILE_DIR
 from pyrate.core.shared import extract_epochs_from_filename, data_format
@@ -503,29 +503,29 @@ def get_header_paths(input_file, slc_file_list):
     return matches
 
 
-def gamma_header(ifg_file_path, params):
+def gamma_header(ifg_file_path, config: Configuration):
     """
     Function to obtain combined Gamma headers for image file
 
     Args:
         ifg_file_path: Path to interferogram file to find headers for.
-        params: PyRate parameters dictionary.
+        config: The PyRate configuration parameters.
 
     Returns:
         A combined header dictionary containing metadata from matching
         gamma headers and DEM header.
     """
-    dem_hdr_path = params[C.DEM_HEADER_FILE]
-    header_paths = get_header_paths(ifg_file_path, params[C.HDR_FILE_LIST])
-    if len(header_paths) == 2 and params[C.BASE_FILE_LIST] is not None:
-        baseline_path = baseline_paths_for(ifg_file_path, params)
+    dem_hdr_path = config.demHeaderFile
+    header_paths = get_header_paths(ifg_file_path, config.hdrfilelist)
+    if len(header_paths) == 2 and config.basefilelist is not None:
+        baseline_path = baseline_paths_for(ifg_file_path, config)
     else:
         baseline_path = None  # don't read baseline files for DEM
 
     combined_headers = manage_headers(dem_hdr_path, header_paths, baseline_path)
 
     if os.path.basename(ifg_file_path).split('.')[1] == \
-            (params[C.APS_INCIDENCE_EXT] or params[C.APS_ELEVATION_EXT]):
+            (config.APS_INCIDENCE_EXT or config.APS_ELEVATION_EXT):
         # TODO: implement incidence class here
         combined_headers['FILE_TYPE'] = 'Incidence'
 
@@ -633,7 +633,7 @@ class GammaException(Exception):
     """Gamma generic exception class"""
 
 
-def baseline_paths_for(path: str, params: dict) -> str:
+def baseline_paths_for(path: str, config: Configuration) -> str:
     """
     Returns path to baseline file for given interferogram. Pattern matches
     based on epoch in filename.
@@ -644,7 +644,7 @@ def baseline_paths_for(path: str, params: dict) -> str:
 
     Args:
         path: Path to intergerogram to find baseline file for.
-        params: Parameter dictionary.
+        config: The workflow configuration parameters.
         tif: Find converted tif if True (_cc.tif), else find .cc file.
 
     Returns:
@@ -659,7 +659,7 @@ def baseline_paths_for(path: str, params: dict) -> str:
     except:
         return None
 
-    base_file_paths = params[BASELINE_FILE_PATHS]
+    base_file_paths = config.baseline_file_paths
     base_file_paths = [f.unwrapped_path for f in base_file_paths if epoch in f.unwrapped_path]
 
     if len(base_file_paths) > 1:

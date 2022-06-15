@@ -20,6 +20,7 @@ from typing import List
 from datetime import date
 import numpy as np
 import networkx as nx
+from pyrate.configuration import Configuration
 from pyrate.core.shared import dem_or_ifg
 import pyrate.constants as C
 from pyrate.core.phase_closure.collect_loops import find_loops, dedupe_loops
@@ -164,23 +165,23 @@ def __setup_edges(ifg_files: List[str]) -> List[Edge]:
     return [Edge(i.first, i.second) for i in ifgs]
 
 
-def __find_signed_closed_loops(params: dict) -> List[WeightedLoop]:
-    ifg_files = [ifg_path.tmp_sampled_path for ifg_path in params[C.INTERFEROGRAM_FILES]]
+def __find_signed_closed_loops(config: Configuration) -> List[WeightedLoop]:
+    ifg_files = [ifg_path.tmp_sampled_path for ifg_path in config.interferogram_files]
     ifg_files.sort()
     log.debug(f"The number of ifgs in the list is {len(ifg_files)}")
     available_edges = __setup_edges(ifg_files)
     # find loops with weights
-    all_loops = __find_closed_loops(available_edges, max_loop_length=params[C.MAX_LOOP_LENGTH])
+    all_loops = __find_closed_loops(available_edges, max_loop_length=config.max_loop_length)
     signed_weighted_loops = __add_signs_and_weights_to_loops(all_loops, available_edges)
     return signed_weighted_loops
 
 
-def sort_loops_based_on_weights_and_date(params: dict) -> List[WeightedLoop]:
+def sort_loops_based_on_weights_and_date(config: Configuration) -> List[WeightedLoop]:
     """
-    :param params: dict of params
+    :param config: The PyRate configuration parameters
     :return: list of sorted, signed, and weighted loops
     """
-    signed_weighted_loops = __find_signed_closed_loops(params)
+    signed_weighted_loops = __find_signed_closed_loops(config)
     # sort based on weights and dates
     signed_weighted_loops.sort(key=lambda x: [x.weight, x.primary_dates, x.secondary_dates])
     return signed_weighted_loops

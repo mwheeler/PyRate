@@ -23,6 +23,7 @@ import datetime
 
 import pyrate.constants as C
 import pyrate.core.ifgconstants as ifc
+from pyrate.configuration import Configuration
 from pyrate.core.shared import extract_epochs_from_filename
 
 # ROIPAC RSC header file constants
@@ -204,23 +205,23 @@ def manage_header(header_file, projection):
     return header
 
 
-def roipac_header(file_path: Path, params):
+def roipac_header(file_path: Path, config: Configuration):
     """
     Function to obtain a header for roipac interferogram file or converted
     geotiff.
     """
-    rsc_file = params[C.DEM_HEADER_FILE]
+    rsc_file = config.demHeaderFile
 
     if rsc_file is not None:
         projection = parse_header(rsc_file)[ifc.PYRATE_DATUM]
     else:
         raise RoipacException('No DEM resource/header file is provided')
     if file_path.endswith('_dem.tif'):
-        header_file = os.path.join(params[C.DEM_HEADER_FILE])
+        header_file = os.path.join(config.demHeaderFile)
     elif file_path.endswith('unw_ifg.tif') or file_path.endswith('unw.tif'):
         # TODO: improve this
         interferogram_epoches = extract_epochs_from_filename(Path(file_path).name)
-        for header_path in params[C.HEADER_FILE_PATHS]:
+        for header_path in config.header_file_paths:
             unwrapped_path = Path(header_path.unwrapped_path)
             header_epochs = extract_epochs_from_filename(unwrapped_path.name)
             if set(header_epochs).__eq__(set(interferogram_epoches)):

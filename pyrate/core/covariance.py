@@ -62,13 +62,18 @@ def _unique_points(points):  # pragma: no cover
     return vstack([array(u) for u in set(points)])
 
 
-def cvd(ifg_path, params, r_dist, calc_alpha=False, write_vals=False, save_acg=False):
+def cvd(
+    ifg_path,
+    config: Configuration,
+    r_dist,
+    calc_alpha=False, write_vals=False, save_acg=False
+):
     """
     Calculate the 1D covariance function of an entire interferogram as the
     radial average of its 2D autocorrelation.
 
     :param str ifg_path: An interferogram file path. OR
-    :param dict params: Dictionary of configuration parameters
+    :param Configuration config: The workflow configuration parameters
     :param ndarray r_dist: Array of distance values from the image centre
                 (See Rdist class for more details)
     :param bool calc_alpha: If True calculate alpha
@@ -84,7 +89,7 @@ def cvd(ifg_path, params, r_dist, calc_alpha=False, write_vals=False, save_acg=F
     """
     ifg = shared.Ifg(ifg_path)
     ifg.open()
-    shared.nan_and_mm_convert(ifg, params)
+    shared.nan_and_mm_convert(ifg, config)
     # calculate 2D auto-correlation of image using the
     # spectral method (Wiener-Khinchin theorem)
     if ifg.nan_converted:  # if nancoverted earlier, convert nans back to 0's
@@ -92,7 +97,8 @@ def cvd(ifg_path, params, r_dist, calc_alpha=False, write_vals=False, save_acg=F
     else:
         phase = ifg.phase_data
 
-    maxvar, alpha = cvd_from_phase(phase, ifg, r_dist, calc_alpha, save_acg=save_acg, params=params)
+    save_acg_path = config.tmpdir if save_acg else None
+    maxvar, alpha = cvd_from_phase(phase, ifg, r_dist, calc_alpha, save_acg_path=save_acg_path)
     if write_vals:
         ifg.add_metadata(**{
             ifc.PYRATE_MAXVAR: str(maxvar),
@@ -114,7 +120,7 @@ def _save_cvd_data(acg, r_dist, ifg_path, outdir):
     np.save(file=data_file, arr=data)
 
 
-def cvd_from_phase(phase, ifg, r_dist, calc_alpha, save_acg=False, params=None):
+def cvd_from_phase(phase, ifg, r_dist, calc_alpha, save_acg_path = None):
     """
     A convenience function used to compute radial autocovariance from phase
     data
@@ -124,10 +130,8 @@ def cvd_from_phase(phase, ifg, r_dist, calc_alpha, save_acg=False, params=None):
     :param ndarray r_dist: Array of distance values from the image centre
                 (See Rdist class for more details)
     :param bool calc_alpha: If True calculate alpha
-    :param bool save_acg: If True write autocorrelation and radial distance
+    :param str save_acg_path: [optiona;] The path to write autocorrelation and radial distance
                 data to numpy array file on disk
-    :param dict params: [optional] Dictionary of configuration parameters;
-                Must be provided if save_acg=True
 
     :return: maxvar: The maximum variance (at zero lag)
     :rtype: float
@@ -166,9 +170,9 @@ def cvd_from_phase(phase, ifg, r_dist, calc_alpha, save_acg=False, params=None):
     acg = acg[indices_to_keep]
 
     # optionally save acg vs dist observations to disk
-    if save_acg:
+    if save_acg_path:
         _save_cvd_data(acg, r_dist[indices_to_keep],
-                       ifg.data_path, params[C.TMPDIR])
+                       ifg.data_path, save_acg_path)
 
     if calc_alpha:
         # bin width for collecting data
@@ -308,12 +312,12 @@ def get_vcmt(ifgs, maxvar):
     return vcm_t * vcm_pat
 
 
-def maxvar_vcm_calc_wrapper(params):
+def maxvar_vcm_calc_wrapper(config: Configuration):
     """
     MPI wrapper for maxvar and vcmt computation
     """
-    preread_ifgs = params[C.PREREAD_IFGS]
-    ifg_paths = [ifg_path.tmp_sampled_path for ifg_path in params[C.INTERFEROGRAM_FILES]]
+    preread_ifgs = config.preread_ifgs
+    ifg_paths = [ifg_path.tmp_sampled_path for ifg_path in config.interferogram_files]
     log.info('Calculating the temporal variance-covariance matrix')
 
     def _get_r_dist(ifg_path):
@@ -334,7 +338,7 @@ def maxvar_vcm_calc_wrapper(params):
 
     for n, i in prcs_ifgs:
         log.debug(f'Calculating maxvar for {n} of process ifgs {n_prcs} of total {n_ifgs}')
-        val = cvd(i, params, r_dist, calc_alpha=True, write_vals=True, save_acg=True)[0]
+        val = cvd(i, config, r_dist, calc_alpha=True, write_vals=True, save_acg=True)[0]
         process_maxvar[int(n)] = val
 
     maxvar_d = shared.join_dicts(mpiops.comm.allgather(process_maxvar))
@@ -342,6 +346,6 @@ def maxvar_vcm_calc_wrapper(params):
 
     vcmt = mpiops.run_once(get_vcmt, preread_ifgs, maxvar)
     log.debug("Finished maxvar and vcm calc!")
-    params[C.MAXVAR], params[C.VCMT] = maxvar, vcmt
-    np.save(Configuration.vcmt_path(params), arr=vcmt)
+    config.maxvar, config.vcmt = maxvar, vcmt
+    np.save(Configuration.vcmt_path(config), arr=vcmt)
     return maxvar, vcmt

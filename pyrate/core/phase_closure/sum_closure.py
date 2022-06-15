@@ -24,6 +24,7 @@ from pyrate.core import mpiops
 from pyrate.core.shared import Ifg, join_dicts
 from pyrate.core.phase_closure.mst_closure import Edge, WeightedLoop
 from pyrate.core.logger import pyratelogger as log
+from pyrate.configuration import Configuration
 
 IndexedIfg = namedtuple('IndexedIfg', ['index', 'IfgPhase'])
 
@@ -37,14 +38,14 @@ class IfgPhase:
         self.phase_data = phase_data
 
 
-def __create_ifg_edge_dict(ifg_files: List[str], params: dict) -> Dict[Edge, IndexedIfg]:
+def __create_ifg_edge_dict(ifg_files: List[str], config: Configuration) -> Dict[Edge, IndexedIfg]:
     """Returns a dictionary of indexed ifg 'edges'"""
     ifg_files.sort()
     ifgs = [Ifg(i) for i in ifg_files]
 
     def _func(ifg, index):
         ifg.open()
-        ifg.nodata_value = params[C.NO_DATA_VALUE]
+        ifg.nodata_value = config.noDataValue
         ifg.convert_to_nans()
         ifg.convert_to_radians()
         idx_ifg = IndexedIfg(index, IfgPhase(ifg.phase_data))
@@ -61,7 +62,7 @@ def __create_ifg_edge_dict(ifg_files: List[str], params: dict) -> Dict[Edge, Ind
 
 
 def sum_phase_closures(
-    ifg_files: List[str], loops: List[WeightedLoop], params: dict
+    ifg_files: List[str], loops: List[WeightedLoop], config: Configuration
 ) -> Tuple[NDArray[(Any, Any, Any), Float32], NDArray[(Any, Any, Any), UInt16], NDArray[(Any,), UInt16]]:
     """
     Compute the closure sum for each pixel in each loop, and count the number of times a pixel
@@ -69,23 +70,23 @@ def sum_phase_closures(
     CLOSURE_THR threshold).
     :param ifg_files: list of ifg files
     :param loops: list of loops
-    :param params: params dict
+    :param config: The PyRate configuration parameters
     :return: Tuple of closure, ifgs_breach_count, num_occurrences_each_ifg
     closure: summed closure for each loop.
     ifgs_breach_count: shape=(ifg.shape, n_ifgs) number of times a pixel in an ifg fails the closure
     check (i.e., has unwrapping error) in all loops under investigation.
     num_occurrences_each_ifg: frequency of ifg appearance in all loops.
     """
-    edge_to_indexed_ifgs = __create_ifg_edge_dict(ifg_files, params)
+    edge_to_indexed_ifgs = __create_ifg_edge_dict(ifg_files, config)
     ifgs = [v.IfgPhase for v in edge_to_indexed_ifgs.values()]
     n_ifgs = len(ifgs)
 
     ifg_shape = ifgs[0].phase_data.shape
 
-    if params[C.PARALLEL]:
-        # rets = Parallel(n_jobs=params[cf.PROCESSES], verbose=joblib_log_level(cf.LOG_LEVEL))(
+    if config.parallel:
+        # rets = Parallel(n_jobs=config.processes, verbose=joblib_log_level(cf.LOG_LEVEL))(
         #     delayed(__compute_ifgs_breach_count)(
-        #         ifg0, n_ifgs, weighted_loop, edge_to_indexed_ifgs, params
+        #         ifg0, n_ifgs, weighted_loop, edge_to_indexed_ifgs, config
         #     )
         #     for weighted_loop in loops
         # )
@@ -96,7 +97,7 @@ def sum_phase_closures(
         ifgs_breach_count = np.zeros(shape=(ifg_shape + (n_ifgs,)), dtype=np.uint16)
         for k, weighted_loop in enumerate(loops):
             closure[:, :, k], ifgs_breach_count_l = __compute_ifgs_breach_count(
-                weighted_loop, edge_to_indexed_ifgs, params
+                weighted_loop, edge_to_indexed_ifgs, config
             )
             ifgs_breach_count += ifgs_breach_count_l
     else:
@@ -105,7 +106,7 @@ def sum_phase_closures(
         ifgs_breach_count_process = np.zeros(shape=(ifg_shape + (n_ifgs,)), dtype=np.uint16)
         for k, weighted_loop in enumerate(process_loops):
             closure_process[:, :, k], ifgs_breach_count_l = \
-                __compute_ifgs_breach_count(weighted_loop, edge_to_indexed_ifgs, params)
+                __compute_ifgs_breach_count(weighted_loop, edge_to_indexed_ifgs, config)
             ifgs_breach_count_process += ifgs_breach_count_l  # process
 
         total_gb = mpiops.comm.allreduce(ifgs_breach_count_process.nbytes / 1e9, op=mpiops.MPI.SUM)
@@ -173,14 +174,13 @@ def _find_num_occurrences_each_ifg(
 def __compute_ifgs_breach_count(
     weighted_loop: WeightedLoop,
     edge_to_indexed_ifgs: Dict[Edge, IndexedIfg],
-    params: dict
+    config: Configuration
 ) -> Tuple[NDArray[(Any, Any), Float32], NDArray[(Any, Any, Any), UInt16]]:
     """Compute summed `closure` of each loop, and compute `ifgs_breach_count` for each pixel."""
     n_ifgs = len(edge_to_indexed_ifgs)
     indexed_ifg = list(edge_to_indexed_ifgs.values())[0]
     ifg = indexed_ifg.IfgPhase
-    closure_thr = params[C.CLOSURE_THR] * np.pi
-    use_median = params[C.SUBTRACT_MEDIAN]
+    closure_thr = config.closure_thr * np.pi
 
     closure = np.zeros(shape=ifg.phase_data.shape, dtype=np.float32)
     # initiate variable for check of unwrapping issues at the same pixels in all loops
@@ -190,7 +190,7 @@ def __compute_ifgs_breach_count(
         indexed_ifg = edge_to_indexed_ifgs[signed_edge.edge]
         ifg = indexed_ifg.IfgPhase
         closure += signed_edge.sign * ifg.phase_data
-    if use_median:
+    if config.subtract_median:
         closure -= np.nanmedian(closure)  # optionally subtract the median closure phase
 
     # this will deal with nans in `closure`,
