@@ -39,7 +39,7 @@ from pyrate.configuration import Configuration, ConfigException
 MAIN_PROCESS = 0
 
 
-def update_refpix_metadata(ifg_paths, refx, refy, transform, params):
+def update_refpix_metadata(ifg_paths, refx, refy, transform, config: Configuration):
     """
     Function that adds metadata about the chosen reference pixel to each interferogram.
     """
@@ -56,8 +56,8 @@ def update_refpix_metadata(ifg_paths, refx, refy, transform, params):
         ifg = Ifg(ifg_file)
         log.debug("Open dataset")
         ifg.open(readonly=True)
-        nan_and_mm_convert(ifg, params)
-        half_patch_size = params["refchipsize"] // 2
+        nan_and_mm_convert(ifg, config)
+        half_patch_size = config.refchipsize // 2
         x, y = refx, refy
         log.debug("Extract reference pixel windows")
         data = ifg.phase_data[y - half_patch_size: y + half_patch_size + 1,
@@ -154,7 +154,7 @@ def convert_lat_lon_to_pixel_coord(lon, lat, transform):
 
 # TODO: move error checking to config step (for fail fast)
 # TODO: this function is not used. Plan removal
-def ref_pixel(ifgs, params):
+def ref_pixel(ifgs, config: Configuration):
     """
     Determines the most appropriate reference pixel coordinate by conducting
     a grid search and calculating the mean standard deviation with patches
@@ -166,25 +166,25 @@ def ref_pixel(ifgs, params):
     the upper bounds cause an exception.
 
     :param list ifgs: List of interferogram objects
-    :param dict params: Dictionary of configuration parameters
+    :param Configuration config: The workflow configuration parameters
 
     :return: tuple of best REFX and REFY coordinates
     :rtype: tuple
     """
-    half_patch_size, thresh, grid = ref_pixel_setup(ifgs, params)
-    parallel = params[C.PARALLEL]
-    if parallel:
+    half_patch_size, thresh, grid = ref_pixel_setup(ifgs, config)
+    
+    if config.parallel:
         phase_data = [i.phase_data for i in ifgs]
-        mean_sds = Parallel(n_jobs=params[C.PROCESSES],
+        mean_sds = Parallel(n_jobs=config.processes,
                             verbose=joblib_log_level(C.LOG_LEVEL))(
             delayed(_ref_pixel_multi)(g, half_patch_size, phase_data,
-                                     thresh, params) for g in grid)
+                                     thresh, config) for g in grid)
         refxy = find_min_mean(mean_sds, grid)
     else:
         phase_data = [i.phase_data for i in ifgs]
         mean_sds = []
         for g in grid:
-            mean_sds.append(_ref_pixel_multi(g, half_patch_size, phase_data, thresh, params))
+            mean_sds.append(_ref_pixel_multi(g, half_patch_size, phase_data, thresh, config))
         refxy = find_min_mean(mean_sds, grid)
 
     if isinstance(refxy, RefPixelError):
@@ -218,13 +218,13 @@ def find_min_mean(mean_sds, grid):
         return v
 
 
-def ref_pixel_setup(ifgs_or_paths, params):
+def ref_pixel_setup(ifgs_or_paths, config: Configuration):
     """
     Sets up the grid for reference pixel computation and saves numpy files
     to disk for later use during ref pixel computation.
 
     :param list ifgs_or_paths: List of interferogram filenames or Ifg objects
-    :param dict params: Dictionary of configuration parameters
+    :param Configuration config: The workflow configuration parameters
 
     :return: half_patch_size: size of patch
     :rtype: float
@@ -234,10 +234,8 @@ def ref_pixel_setup(ifgs_or_paths, params):
     :rtype: list
     """
     log.debug('Setting up ref pixel computation')
-    refnx, refny, chipsize, min_frac = params[C.REFNX], \
-                                       params[C.REFNY], \
-                                       params[C.REF_CHIP_SIZE], \
-                                       params[C.REF_MIN_FRAC]
+    chipsize = config.refchipsize
+
     if len(ifgs_or_paths) < 1:
         msg = 'Reference pixel search requires 2+ interferograms'
         raise RefPixelError(msg)
@@ -250,38 +248,38 @@ def ref_pixel_setup(ifgs_or_paths, params):
 
     # sanity check inputs
     _validate_chipsize(chipsize, head)
-    _validate_minimum_fraction(min_frac)
-    _validate_search_win(refnx, refny, chipsize, head)
+    _validate_minimum_fraction(config.refminfrac)
+    _validate_search_win(config.refnx, config.refny, chipsize, head)
     # pre-calculate useful amounts
     half_patch_size = chipsize // 2
     chipsize = half_patch_size * 2 + 1
-    thresh = min_frac * chipsize * chipsize
+    thresh = config.refminfrac * chipsize * chipsize
     # do window searches across dataset, central pixel of stack with smallest
     # mean is the reference pixel
     rows, cols = head.shape
-    ysteps = _step(rows, refny, half_patch_size)
-    xsteps = _step(cols, refnx, half_patch_size)
+    ysteps = _step(rows, config.refny, half_patch_size)
+    xsteps = _step(cols, config.refnx, half_patch_size)
     log.debug('Ref pixel setup finished')
     return half_patch_size, thresh, list(product(ysteps, xsteps))
 
 
-def save_ref_pixel_blocks(grid, half_patch_size, ifg_paths, params):
+def save_ref_pixel_blocks(grid, half_patch_size, ifg_paths, config: Configuration):
     """
     Save reference pixel grid blocks to numpy array files on disk
 
     :param list grid: List of tuples (y, x) corresponding to ref pixel grids
     :param int half_patch_size: patch size in pixels
     :param list ifg_paths: list of interferogram paths
-    :param dict params: Dictionary of configuration parameters
+    :param Configuration config: The workflow configuration parameters
 
     :return: None, file saved to disk
     """
     log.debug('Saving ref pixel blocks')
-    outdir = params[C.TMPDIR]
+    outdir = config.tmpdir
     for pth in ifg_paths:
         ifg = Ifg(pth)
         ifg.open(readonly=True)
-        ifg.nodata_value = params[C.NO_DATA_VALUE]
+        ifg.nodata_value = config.noDataValue
         ifg.convert_to_nans()
         ifg.convert_to_mm()
 
@@ -297,19 +295,21 @@ def save_ref_pixel_blocks(grid, half_patch_size, ifg_paths, params):
     log.debug('Saved ref pixel blocks')
 
 
-def _ref_pixel_mpi(process_grid, half_patch_size, ifgs, thresh, params):
+def _ref_pixel_mpi(process_grid, half_patch_size, ifgs, thresh, config: Configuration):
     """
     Convenience function for MPI-enabled ref pixel calculation
     """
     log.debug('Ref pixel calculation started')
     mean_sds = []
     for g in process_grid:
-        mean_sds.append(_ref_pixel_multi(g, half_patch_size, ifgs, thresh, params))
+        mean_sds.append(_ref_pixel_multi(g, half_patch_size, ifgs, thresh, config))
     return mean_sds
 
 
-def _ref_pixel_multi(g, half_patch_size, phase_data_or_ifg_paths,
-                    thresh, params):
+def _ref_pixel_multi(
+    g, half_patch_size, phase_data_or_ifg_paths, thresh,
+    config: Configuration
+):
     """
     Convenience function for ref pixel optimisation
     """
@@ -320,7 +320,7 @@ def _ref_pixel_multi(g, half_patch_size, phase_data_or_ifg_paths,
         # this consumes a lot less memory
         # one ifg.phase_data in memory at any time
         data = []
-        output_dir = params[C.TMPDIR]
+        output_dir = config.tmpdir
         for p in phase_data_or_ifg_paths:
             b = os.path.basename(p).split('.')[0]
             data_file = os.path.join(output_dir, f'ref_phase_data_{b}_{y}_{x}.npy')
@@ -407,20 +407,22 @@ def _validate_search_win(refnx, refny, chipsize, head):
         raise RefPixelError(msg % max_rows)
 
 
-def __validate_supplied_lat_lon(params: dict) -> None:
+def __validate_supplied_lat_lon(config: Configuration) -> None:
     """
     Function to validate that the user supplied lat/lon values sit within image bounds
     """
-    lon, lat = params[C.REFX], params[C.REFY]
+    lon, lat = config.refx, config.refy
     if lon == -1 or lat == -1:
         return
+
+    user_extent = (config.ifgxfirst, config.ifgyfirst, config.ifgxlast, config.ifgylast)
     xmin, ymin, xmax, ymax = prepifg_helper.get_analysis_extent(
-        crop_opt=params[C.IFG_CROP_OPT],
-        rasters=[prepifg_helper.dem_or_ifg(p.sampled_path) for p in params[C.INTERFEROGRAM_FILES]],
-        xlooks=params[C.IFG_LKSX], ylooks=params[C.IFG_LKSY],
-        user_exts=(params[C.IFG_XFIRST], params[C.IFG_YFIRST], params[
-            C.IFG_XLAST], params[C.IFG_YLAST])
+        crop_opt=config.ifgcropopt,
+        rasters=[prepifg_helper.dem_or_ifg(p.sampled_path) for p in config.interferogram_files],
+        xlooks=config.ifglksx, ylooks=config.ifglksy,
+        user_exts=user_extent
     )
+
     msg = "Supplied {} value is outside the bounds of the interferogram data"
     lat_lon_txt = ''
     if (lon < xmin) or (lon > xmax):
@@ -437,21 +439,20 @@ class RefPixelError(Exception):
     """
 
 
-def ref_pixel_calc_wrapper(params: dict) -> Tuple[int, int]:
+def ref_pixel_calc_wrapper(config: Configuration) -> Tuple[int, int]:
     """
     Wrapper for reference pixel calculation
     """
-    __validate_supplied_lat_lon(params)
-    ifg_paths = [ifg_path.tmp_sampled_path for ifg_path in params[C.INTERFEROGRAM_FILES]]
-    lon = params[C.REFX]
-    lat = params[C.REFY]
+    __validate_supplied_lat_lon(config)
+    ifg_paths = [ifg_path.tmp_sampled_path for ifg_path in config.interferogram_files]
+    lon, lat = config.refx, config.refy
 
     ifg = Ifg(ifg_paths[0])
     ifg.open(readonly=True)
     # assume all interferograms have same projection and will share the same transform
     transform = ifg.dataset.GetGeoTransform()
 
-    ref_pixel_file = Configuration.ref_pixel_path(params)
+    ref_pixel_file = Configuration.ref_pixel_path(config)
 
     def _reuse_ref_pixel_file_if_exists():
         if not ref_pixel_file.exists():
@@ -463,22 +464,22 @@ def ref_pixel_calc_wrapper(params: dict) -> Tuple[int, int]:
             f'Reusing pre-calculated ref-pixel values: ({refx}, {refy}) from file {ref_path}'
         )
         log.warning("Reusing ref-pixel values from previous run!!!")
-        params[C.REFX_FOUND], params[C.REFY_FOUND] = int(refx), int(refy)
+        config.refxfound, config.refyfound = int(refx), int(refy)
         return int(refx), int(refy)
 
     # read and return
     refx, refy = mpiops.run_once(_reuse_ref_pixel_file_if_exists)
     if (refx is not None) and (refy is not None):
-        update_refpix_metadata(ifg_paths, int(refx), int(refy), transform, params)
+        update_refpix_metadata(ifg_paths, int(refx), int(refy), transform, config)
         return refx, refy
 
     if lon == -1 or lat == -1:
         log.info('Searching for best reference pixel location')
 
-        half_patch_size, thresh, grid = ref_pixel_setup(ifg_paths, params)
+        half_patch_size, thresh, grid = ref_pixel_setup(ifg_paths, config)
         process_grid = mpiops.array_split(grid)
-        save_ref_pixel_blocks(process_grid, half_patch_size, ifg_paths, params)
-        mean_sds = _ref_pixel_mpi(process_grid, half_patch_size, ifg_paths, thresh, params)
+        save_ref_pixel_blocks(process_grid, half_patch_size, ifg_paths, config)
+        mean_sds = _ref_pixel_mpi(process_grid, half_patch_size, ifg_paths, thresh, config)
         mean_sds = mpiops.comm.gather(mean_sds, root=0)
         if mpiops.rank == MAIN_PROCESS:
             mean_sds = np.hstack(mean_sds)
@@ -501,9 +502,9 @@ def ref_pixel_calc_wrapper(params: dict) -> Tuple[int, int]:
         log.info(f'Converted reference pixel coordinate (x, y): ({refx}, {refy})')
 
     np.save(file=ref_pixel_file, arr=[int(refx), int(refy)])
-    update_refpix_metadata(ifg_paths, refx, refy, transform, params)
+    update_refpix_metadata(ifg_paths, refx, refy, transform, config)
 
     log.debug(f"refpx, refpy: {refx} {refy}")
     ifg.close()
-    params[C.REFX_FOUND], params[C.REFY_FOUND] = int(refx), int(refy)
+    config.refxfound, config.refyfound = int(refx), int(refy)
     return int(refx), int(refy)

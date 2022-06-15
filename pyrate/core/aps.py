@@ -40,7 +40,7 @@ from pyrate.merge import assemble_tiles
 from pyrate.configuration import MultiplePaths, Configuration
 
 
-def spatio_temporal_filter(params: dict) -> None:
+def spatio_temporal_filter(config: Configuration) -> None:
     """
     Applies a spatio-temporal filter to remove the atmospheric phase screen
     (APS) and saves the corrected interferograms. Firstly the incremental
@@ -48,16 +48,16 @@ def spatio_temporal_filter(params: dict) -> None:
     then spatial Gaussian filters is applied. The resulting APS corrections are
     saved to disc before being subtracted from each interferogram.
 
-    :param params: Dictionary of PyRate configuration parameters.
+    :param config: The PyRate configuration parameters.
     """
-    if params[C.APSEST]:
+    if config.apsest:
         log.info('Doing APS spatio-temporal filtering')
     else:
         log.info('APS spatio-temporal filtering not required')
         return
-    tiles = params[C.TILES]
-    preread_ifgs = params[C.PREREAD_IFGS]
-    ifg_paths = [ifg_path.tmp_sampled_path for ifg_path in params[C.INTERFEROGRAM_FILES]]
+    tiles = config.tiles
+    preread_ifgs = config.preread_ifgs
+    ifg_paths = [ifg_path.tmp_sampled_path for ifg_path in config.interferogram_files]
 
     # perform some checks on existing ifgs
     log.debug('Checking APS correction status')
@@ -65,14 +65,14 @@ def spatio_temporal_filter(params: dict) -> None:
         log.debug('Finished APS correction')
         return  # return if True condition returned
 
-    aps_paths = [MultiplePaths.aps_error_path(i, params) for i in ifg_paths]
+    aps_paths = [MultiplePaths.aps_error_path(i, config) for i in ifg_paths]
     if all(a.exists() for a in aps_paths):
         log.warning('Reusing APS errors from previous run')
-        _apply_aps_correction(ifg_paths, aps_paths, params)
+        _apply_aps_correction(ifg_paths, aps_paths, config)
         return
 
     # obtain the incremental time series using SVD
-    tsincr = _calc_svd_time_series(ifg_paths, params, preread_ifgs, tiles)
+    tsincr = _calc_svd_time_series(ifg_paths, config, preread_ifgs, tiles)
     mpiops.comm.barrier()
 
     # get lists of epochs and ifgs
@@ -80,26 +80,30 @@ def spatio_temporal_filter(params: dict) -> None:
     epochlist = mpiops.run_once(get_epochs, ifgs)[0]
 
     # first perform temporal high pass filter
-    ts_hp = temporal_high_pass_filter(tsincr, epochlist, params)
+    ts_hp = temporal_high_pass_filter(tsincr, epochlist, config)
 
     # second perform spatial low pass filter to obtain APS correction in ts domain
     ifg = Ifg(ifg_paths[0])  # just grab any for parameters in slpfilter
     ifg.open()
-    ts_aps = spatial_low_pass_filter(ts_hp, ifg, params)
+    ts_aps = spatial_low_pass_filter(ts_hp, ifg, config)
     ifg.close()
 
     # construct APS corrections for each ifg
-    _make_aps_corrections(ts_aps, ifgs, params)
+    _make_aps_corrections(ts_aps, ifgs, config)
 
     # apply correction to ifgs and save ifgs to disc.
-    _apply_aps_correction(ifg_paths, aps_paths, params)
+    _apply_aps_correction(ifg_paths, aps_paths, config)
 
     # update/save the phase_data in the tiled numpy files
-    shared.save_numpy_phase(ifg_paths, params)
+    shared.save_numpy_phase(ifg_paths, config)
 
 
-def _calc_svd_time_series(ifg_paths: List[str], params: dict, preread_ifgs: dict,
-                          tiles: List[Tile]) -> np.ndarray:
+def _calc_svd_time_series(
+    ifg_paths: List[str],
+    config: Configuration,
+    preread_ifgs: dict,
+    tiles: List[Tile]
+) -> np.ndarray:
     """
     Helper function to obtain time series for spatio-temporal filter
     using SVD method
@@ -108,7 +112,7 @@ def _calc_svd_time_series(ifg_paths: List[str], params: dict, preread_ifgs: dict
     log.info('Calculating incremental time series via SVD method for APS '
              'correction')
     # copy params temporarily
-    new_params = deepcopy(params)
+    new_params = deepcopy(config)
     new_params[C.TIME_SERIES_METHOD] = 2  # use SVD method
 
     process_tiles = mpiops.array_split(tiles)
@@ -117,23 +121,30 @@ def _calc_svd_time_series(ifg_paths: List[str], params: dict, preread_ifgs: dict
     for t in process_tiles:
         log.debug(f'Calculating time series for tile {t.index} during APS '
                   f'correction')
-        ifgp = [shared.IfgPart(p, t, preread_ifgs, params) for p in ifg_paths]
-        mst_tile = np.load(Configuration.mst_path(params, t.index))
+        ifgp = [shared.IfgPart(p, t, preread_ifgs, config) for p in ifg_paths]
+        mst_tile = np.load(Configuration.mst_path(config, t.index))
         tsincr = time_series(ifgp, new_params, vcmt=None, mst=mst_tile)[0]
-        np.save(file=os.path.join(params[C.TMPDIR],
-                                  f'tsincr_aps_{t.index}.npy'), arr=tsincr)
+        np.save(
+            file=os.path.join(config.tmpdir, f'tsincr_aps_{t.index}.npy'),
+            arr=tsincr
+        )
         nvels = tsincr.shape[2]
 
     nvels = mpiops.comm.bcast(nvels, root=0)
     mpiops.comm.barrier()
     # need to assemble tsincr from all processes
-    tsincr_g = _assemble_tsincr(ifg_paths, params, preread_ifgs, tiles, nvels)
+    tsincr_g = _assemble_tsincr(ifg_paths, config, preread_ifgs, tiles, nvels)
     log.debug('Finished calculating time series for spatio-temporal filter')
     return tsincr_g
 
 
-def _assemble_tsincr(ifg_paths: List[str], params: dict, preread_ifgs: dict,
-                     tiles: List[Tile], nvels: np.float32) -> np.ndarray:
+def _assemble_tsincr(
+    ifg_paths: List[str],
+    config: Configuration,
+    preread_ifgs: dict,
+    tiles: List[Tile],
+    nvels: np.float32
+) -> np.ndarray:
     """
     Helper function to reconstruct time series images from tiles
     """
@@ -142,20 +153,24 @@ def _assemble_tsincr(ifg_paths: List[str], params: dict, preread_ifgs: dict,
     tsincr_p = {}
     process_nvels = mpiops.array_split(range(nvels))
     for i in process_nvels:
-        tsincr_p[i] = assemble_tiles(shape, params[C.TMPDIR], tiles,
+        tsincr_p[i] = assemble_tiles(shape, config.tmpdir, tiles,
                                      out_type='tsincr_aps', index=i)
     tsincr_g = shared.join_dicts(mpiops.comm.allgather(tsincr_p))
     return np.dstack([v[1] for v in sorted(tsincr_g.items())])
 
 
-def _make_aps_corrections(ts_aps: np.ndarray, ifgs: List[Ifg], params: dict) -> None:
+def _make_aps_corrections(
+    ts_aps: np.ndarray,
+    ifgs: List[Ifg],
+    config: Configuration
+) -> None:
     """
     Function to convert the time series APS filter output into interferometric
     phase corrections and save them to disc.
 
     :param ts_aps: Incremental APS time series array.
     :param ifgs:   List of Ifg class objects.
-    :param params: Dictionary of PyRate configuration parameters.
+    :param config: The PyRate configuration parameters.
     """
     log.debug('Reconstructing interferometric observations from time series')
     # get first and second image indices
@@ -166,13 +181,17 @@ def _make_aps_corrections(ts_aps: np.ndarray, ifgs: List[Ifg], params: dict) -> 
     for i, ifg in [(int(num), ifg) for num, ifg in num_ifgs_tuples]:
         # sum time slice data from first to second epoch
         ifg_aps = np.sum(ts_aps[:, :, index_first[i]: index_second[i]], axis=2)
-        aps_error_on_disc = MultiplePaths.aps_error_path(ifg.tmp_path, params)
+        aps_error_on_disc = MultiplePaths.aps_error_path(ifg.tmp_path, config)
         np.save(file=aps_error_on_disc, arr=ifg_aps) # save APS as numpy array
 
     mpiops.comm.barrier()
 
 
-def _apply_aps_correction(ifg_paths: List[str], aps_paths: List[str], params: dict) -> None:
+def _apply_aps_correction(
+    ifg_paths: List[str],
+    aps_paths: List[str],
+    config: Configuration
+) -> None:
     """
     Function to read and apply (subtract) APS corrections from interferogram data.
     """
@@ -183,7 +202,7 @@ def _apply_aps_correction(ifg_paths: List[str], aps_paths: List[str], params: di
         ifg = Ifg(ifg_path)
         ifg.open(readonly=False)
         # convert NaNs and convert to mm
-        nan_and_mm_convert(ifg, params)
+        nan_and_mm_convert(ifg, config)
         # subtract the correction from the ifg phase data
         ifg.phase_data[~np.isnan(ifg.phase_data)] -= aps_corr[~np.isnan(ifg.phase_data)]
         # set meta-data tags after aps error correction
@@ -193,7 +212,11 @@ def _apply_aps_correction(ifg_paths: List[str], aps_paths: List[str], params: di
         ifg.close()
 
 
-def spatial_low_pass_filter(ts_hp: np.ndarray, ifg: Ifg, params: dict) -> np.ndarray:
+def spatial_low_pass_filter(
+    ts_hp: np.ndarray,
+    ifg: Ifg,
+    config: Configuration
+) -> np.ndarray:
     """
     Filter time series data spatially using a Gaussian low-pass
     filter defined by a cut-off distance. If the cut-off distance is
@@ -201,15 +224,13 @@ def spatial_low_pass_filter(ts_hp: np.ndarray, ifg: Ifg, params: dict) -> np.nda
     each time step using the pyrate.covariance.cvd_from_phase method.
     :param ts_hp: Array of temporal high-pass time series data, shape (ifg.shape, n_epochs)
     :param ifg: pyrate.core.shared.Ifg Class object.
-    :param params: Dictionary of PyRate configuration parameters.
+    :param config: The PyRate configuration parameters.
     :return: ts_lp: Low-pass filtered time series data of shape (ifg.shape, n_epochs).
     """
     log.info('Applying spatial low-pass filter')
 
     nvels = ts_hp.shape[2]
-    cutoff = params[C.SLPF_CUTOFF]
-    # nanfill = params[cf.SLPF_NANFILL]
-    # fillmethod = params[cf.SLPF_NANFILL_METHOD]
+    cutoff = config.slpfcutoff
     if cutoff == 0:
         r_dist = RDist(ifg)()  # only needed for cvd_for_phase
     else:
@@ -221,7 +242,7 @@ def spatial_low_pass_filter(ts_hp: np.ndarray, ifg: Ifg, params: dict) -> np.nda
     process_ts_lp = {}
 
     for i in process_nvel:
-        process_ts_lp[i] = _slpfilter(ts_hp[:, :, i], ifg, r_dist, params)
+        process_ts_lp[i] = _slpfilter(ts_hp[:, :, i], ifg, r_dist, config)
 
     ts_lp_d = shared.join_dicts(mpiops.comm.allgather(process_ts_lp))
     ts_lp = np.dstack([v[1] for v in sorted(ts_lp_d.items())])
@@ -244,13 +265,18 @@ def _interpolate_nans_2d(arr: np.ndarray, method: str) -> None:
         method=method, fill_value=0)
 
 
-def _slpfilter(phase: np.ndarray, ifg: Ifg, r_dist: float, params: dict) -> np.ndarray:
+def _slpfilter(
+    phase: np.ndarray,
+    ifg: Ifg,
+    r_dist: float,
+    config: Configuration
+) -> np.ndarray:
     """
     Wrapper function for spatial low pass filter
     """
-    cutoff = params[C.SLPF_CUTOFF]
-    nanfill = params[C.SLPF_NANFILL]
-    fillmethod = params[C.SLPF_NANFILL_METHOD]
+    cutoff = config.slpfcutoff
+    nanfill = config.slpnanfill
+    fillmethod = config.slpnanfill_method
 
     if np.all(np.isnan(phase)):  # return for nan matrix
         return phase
@@ -319,20 +345,23 @@ def gaussian_spatial_filter(image: np.ndarray, cutoff: float, x_size: float,
 
 
 # TODO: use tiles here and distribute amongst processes
-def temporal_high_pass_filter(tsincr: np.ndarray, epochlist: EpochList,
-                              params: dict) -> np.ndarray:
+def temporal_high_pass_filter(
+    tsincr: np.ndarray,
+    epochlist: EpochList,
+    config: Configuration
+) -> np.ndarray:
     """
     Isolate high-frequency components of time series data by subtracting
     low-pass components obtained using a Gaussian filter defined by a
     cut-off time period (in days).
     :param tsincr: Array of incremental time series data of shape (ifg.shape, n_epochs).
     :param epochlist: A pyrate.core.shared.EpochList Class instance.
-    :param params: Dictionary of PyRate configuration parameters.
+    :param config: The PyRate configuration parameters.
     :return: ts_hp: Filtered high frequency time series data; shape (ifg.shape, nepochs).
     """
     log.info('Applying temporal high-pass filter')
-    threshold = params[C.TLPF_PTHR]
-    cutoff_day = params[C.TLPF_CUTOFF]
+    threshold = config.tlpfpthr
+    cutoff_day = config.tlpfcutoff
     if cutoff_day < 1 or not isinstance(cutoff_day, int):
         raise ValueError(f'tlpf_cutoff must be an integer greater than or '
                          f'equal to 1 day. Value provided = {cutoff_day}')

@@ -320,6 +320,29 @@ class Configuration:
     #: FLOAT; Maximum allowable standard error for pixels in stacking
     maxsig: float
 
+    # APS correction parameters
+    #: BOOL (0/1) Perform APS correction (1: yes, 0: no)
+    apsest: bool
+    # temporal low-pass filter parameters
+    #: FLOAT; Cutoff time for gaussian filter in days;
+    tlpfcutoff: float
+    #: INT; Number of required input observations per pixel for temporal filtering
+    tlpfpthr: int
+    # spatially correlated noise low-pass filter parameters
+    #: FLOAT; Cutoff  value for both butterworth and gaussian filters in km
+    slpfcutoff: float
+    #: INT (1/0); Do spatial interpolation at NaN locations (1 for interpolation, 0 for zero fill)
+    slpnanfill: int  # FIXME: should be enum
+    #: #: STR; Method for spatial interpolation (one of: linear, nearest, cubic),
+    # only used when slpnanfill=1
+    slpnanfill_method: str  # FIXME: should be... enum? slpnanfill and slpnanfill_method combined?
+
+    # DEM error correction parameters
+    #: BOOL (0/1) Perform DEM error correction (1: yes, 0: no)
+    demerror: bool
+    #: INT; Number of required input observations per pixel for DEM error estimation
+    de_pthr: int
+
     # prepifg params: (TODO: Move into PrepIfgConfiguration?)
 
     ifgcropopt: int  # TODO: Ideally this would be IfgCropOption (requires a bit of refactoring)
