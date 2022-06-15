@@ -222,6 +222,10 @@ class Configuration:
     #: STR; Name of the file list containing the pool of available header files
     hdrfilelist: str
 
+    #: STR; Name of the file containing the GAMMA lookup table between lat/lon and
+    # radar coordinates (row/col)
+    ltfile: str
+
     #: (0/1/2); The interferogram processor used (0==ROIPAC, 1==GAMMA, 2: GEOTIF)
     processor: int # TODO: Enum...
 

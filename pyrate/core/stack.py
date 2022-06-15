@@ -31,14 +31,14 @@ from pyrate.core.logger import pyratelogger as log
 from pyrate.configuration import Configuration
 
 
-def stack_rate_array(ifgs, params, vcmt, mst=None):
+def stack_rate_array(ifgs, config: Configuration, vcmt, mst=None):
     """
     This function loops over all interferogram pixels in a 3-dimensional array and estimates
     the pixel rate (velocity) by applying the iterative weighted least-squares stacking
     algorithm 'pyrate.core.stack.stack_rate_pixel'.
 
     :param Ifg.object ifgs: Sequence of objects containing the interferometric observations
-    :param dict params: Configuration parameters
+    :param Configuration config: The PyRate configuration parameters
     :param ndarray vcmt: Derived positive definite temporal variance covariance matrix
     :param ndarray mst: Pixel-wise matrix describing the minimum spanning tree network
 
@@ -52,9 +52,9 @@ def stack_rate_array(ifgs, params, vcmt, mst=None):
 
     # stack rate parameters from config file
     # n-sigma ratio used to threshold 'model minus observation' residuals
-    nsig = params[C.LR_NSIG]
+    nsig = config.nsig
     # Pixel threshold; minimum number of observations for a pixel
-    pthresh = params[C.LR_PTHRESH]
+    pthresh = config.pthr
     rows, cols = ifgs[0].phase_data.shape
     # make 3D block of observations
     obs = array([np.where(isnan(x.phase_data), 0, x.phase_data) for x in ifgs])
@@ -78,7 +78,7 @@ def stack_rate_array(ifgs, params, vcmt, mst=None):
 
             rate[i, j], error[i, j], samples[i, j] = value
 
-    return rate, params[C.VELERROR_NSIG]*error, samples
+    return rate, config.velerror_nsig*error, samples
 
 def mask_rate(rate, error, maxsig):
     """
@@ -190,32 +190,32 @@ def stack_rate_pixel(obs, mst, vcmt, span, nsig, pthresh):
     return np.nan, np.nan, default_no_samples
 
 
-def stack_calc_wrapper(params):
+def stack_calc_wrapper(config: Configuration):
     """
     Wrapper for stacking on a set of tiles.
     """
     log.info('Calculating rate map via stacking')
-    if not Configuration.vcmt_path(params).exists():
+    if not Configuration.vcmt_path(config).exists():
         raise FileNotFoundError("VCMT is not found on disc. Have you run the 'correct' step?")
-    params[C.PREREAD_IFGS] = cp.load(open(Configuration.preread_ifgs(params), 'rb'))
-    params[C.VCMT] = np.load(Configuration.vcmt_path(params))
-    params[C.TILES] = Configuration.get_tiles(params)
-    tiles_split(_stacking_for_tile, params)
+    config.preread_ifgs = cp.load(open(Configuration.preread_ifgs(config), 'rb'))
+    config.vcmt = np.load(Configuration.vcmt_path(config))
+    config.tiles = Configuration.get_tiles(config)
+    tiles_split(_stacking_for_tile, config)
     log.debug("Finished stacking calc!")
 
 
-def _stacking_for_tile(tile, params):
+def _stacking_for_tile(tile, config: Configuration):
     """
     Wrapper for stacking calculation on a single tile
     """
-    preread_ifgs = params[C.PREREAD_IFGS]
-    vcmt = params[C.VCMT]
-    ifg_paths = [ifg_path.tmp_sampled_path for ifg_path in params[C.INTERFEROGRAM_FILES]]
-    output_dir = params[C.TMPDIR]
+    preread_ifgs = config.preread_ifgs
+    vcmt = config.vcmt
+    ifg_paths = [ifg_path.tmp_sampled_path for ifg_path in config.interferogram_files]
+    output_dir = config.tmpdir
     log.debug(f"Stacking of tile {tile.index}")
-    ifg_parts = [shared.IfgPart(p, tile, preread_ifgs, params) for p in ifg_paths]
-    mst_tile = np.load(Configuration.mst_path(params, tile.index))
-    rate, error, samples = stack_rate_array(ifg_parts, params, vcmt, mst_tile)
+    ifg_parts = [shared.IfgPart(p, tile, preread_ifgs, config) for p in ifg_paths]
+    mst_tile = np.load(Configuration.mst_path(config, tile.index))
+    rate, error, samples = stack_rate_array(ifg_parts, config, vcmt, mst_tile)
     np.save(file=os.path.join(output_dir, f'stack_rate_{tile.index}.npy'), arr=rate)
     np.save(file=os.path.join(output_dir, f'stack_error_{tile.index}.npy'), arr=error)
     np.save(file=os.path.join(output_dir, f'stack_samples_{tile.index}.npy'), arr=samples)

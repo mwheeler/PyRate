@@ -197,13 +197,13 @@ class TestIfgPart(UnitTestAdaptation):
     def test_mst_multiprocessing_serial(self):
         self.params[C.PARALLEL] = False
         original_mst = mst.mst_boolean_array(self.ifgs)
-        parallel_mst = mst.mst_parallel(self.ifgs, params=self.params)
+        parallel_mst = mst.mst_parallel(self.ifgs, config=self.params)
         np.testing.assert_array_equal(original_mst, parallel_mst)
 
     def test_mst_multiprocessing(self):
         self.params[C.PARALLEL] = True
         original_mst = mst.mst_boolean_array(self.ifgs)
-        parallel_mst = mst.mst_parallel(self.ifgs, params=self.params)
+        parallel_mst = mst.mst_parallel(self.ifgs, config=self.params)
         np.testing.assert_array_equal(original_mst, parallel_mst)
 
 

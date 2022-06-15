@@ -80,12 +80,8 @@ def test_associate_ifgs_with_loops(signed_loops, geotiffs):
     assert isinstance(swe.second, date)
 
 
-def test_sort_loops_based_on_weights_and_date(geotiffs):
-    ifg_files = [IfgDummy(ifg_path) for ifg_path in geotiffs]
-    params = {
-        C.INTERFEROGRAM_FILES: ifg_files,
-        C.MAX_LOOP_LENGTH: 100
-    }
+def test_sort_loops_based_on_weights_and_date(closure_params):
+    params = closure_params
     weighted_loops = sort_loops_based_on_weights_and_date(params)
     assert len(weighted_loops) == 541
     # order

@@ -28,6 +28,7 @@ import pyrate.constants as C
 from pyrate.core import ifgconstants as ifc
 from pyrate.core.gamma import read_lookup_table
 from pyrate.core.shared import Ifg, IfgPart, MemGeometry
+from pyrate.configuration import Configuration
 
 
 def get_lonlat_coords(ifg: Ifg) -> Tuple[MemGeometry, MemGeometry]:
@@ -54,14 +55,14 @@ def get_lonlat_coords(ifg: Ifg) -> Tuple[MemGeometry, MemGeometry]:
     return MemGeometry(lon), MemGeometry(lat)
 
 
-def calc_radar_coords(ifg: Ifg, params: dict, xmin: int, xmax: int,
+def calc_radar_coords(ifg: Ifg, config: Configuration, xmin: int, xmax: int,
                       ymin: int, ymax: int) -> Tuple[np.ndarray, np.ndarray]:
     """
     Function to calculate radar coordinates for each pixel in the multi-looked
     interferogram dataset. Radar coordinates are identical for each interferogram
     in the stack. Uses the Gamma lookup table defined in the configuration file.
     :param ifg: pyrate.core.shared.Ifg Class object.
-    :param params: Dictionary of PyRate configuration parameters.
+    :param config: The PyRate configuration parameters.
     :param xmin: Minimum longitude of cropped image (decimal degrees).
     :param xmax: Maximum longitude of cropped image (decimal degrees)
     :param ymin: Minimum latitude of cropped image (decimal degrees).
@@ -70,15 +71,15 @@ def calc_radar_coords(ifg: Ifg, params: dict, xmin: int, xmax: int,
     :return: lt_rg: Radar geometry range coordinate for each pixel.
     """
     # lookup table file:
-    lookup_table = params[C.LT_FILE]
+    lookup_table = config.ltfile
 
     if lookup_table is None:
         msg = "No lookup table file supplied: Geometry cannot be computed"
         raise FileNotFoundError(msg)
 
     # PyRate IFG multi-looking factors
-    ifglksx = params[C.IFG_LKSX]
-    ifglksy = params[C.IFG_LKSY]
+    ifglksx = config.ifglksx
+    ifglksy = config.ifglksy
     # transform float lookup table file to np array,
     # min/max pixel coordinates are required for cropping
     lt_az, lt_rg = read_lookup_table(ifg, lookup_table, ifglksx, ifglksy, xmin, xmax, ymin, ymax)

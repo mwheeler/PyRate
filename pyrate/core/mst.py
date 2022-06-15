@@ -69,19 +69,19 @@ def mst_from_ifgs(ifgs):
     return mst.edges(), nx.is_tree(mst), nx.number_connected_components(mst), mst_ifgs
 
 
-def mst_parallel(ifgs, params):
+def mst_parallel(ifgs, config: Configuration):
     """
     Wrapper function for calculating MST matrix in non-MPI runs.
 
     :param list ifgs: List of interferogram objects (Ifg class)
-    :param dict params: Dictionary of parameters
+    :param Configuration config: The PyRate configuration parameters
 
     :return: result: 3-dimensional Minimum Spanning Tree matrix
     :rtype: ndarray
     """
 
     log.info('Calculating MST in tiles')
-    ncpus = params[C.PROCESSES]
+    ncpus = config.processes
     no_ifgs = len(ifgs)
     no_y, no_x = ifgs[0].phase_data.shape
     tiles = create_tiles(ifgs[0].shape)
@@ -93,10 +93,10 @@ def mst_parallel(ifgs, params):
     ifg_paths = [i.data_path for i in ifgs]
     result = empty(shape=(no_ifgs, no_y, no_x), dtype=np.bool)
 
-    if params[C.PARALLEL]:
+    if config.parallel:
         log.info(f'Calculating MST using {no_tiles} tiles in parallel using {ncpus} processes')
-        t_msts = Parallel(n_jobs=params[C.PROCESSES], verbose=joblib_log_level(C.LOG_LEVEL))(
-            delayed(mst_multiprocessing)(t, ifg_paths, params=params) for t in tiles
+        t_msts = Parallel(n_jobs=config.processes, verbose=joblib_log_level(C.LOG_LEVEL))(
+            delayed(mst_multiprocessing)(t, ifg_paths, config=config) for t in tiles
         )
         for k, tile in enumerate(tiles):
             y_slice = slice(tile.top_left_y, tile.bottom_right_y)
@@ -107,12 +107,12 @@ def mst_parallel(ifgs, params):
         for k, tile in enumerate(tiles):
             y_slice = slice(tile.top_left_y, tile.bottom_right_y)
             x_slice = slice(tile.top_left_x, tile.bottom_right_x)
-            result[:, y_slice, x_slice] = mst_multiprocessing(tile, ifg_paths, params=params)
+            result[:, y_slice, x_slice] = mst_multiprocessing(tile, ifg_paths, config=config)
 
     return result
 
 
-def mst_multiprocessing(tile, ifgs_or_paths, preread_ifgs=None, params=None):
+def mst_multiprocessing(tile, ifgs_or_paths, preread_ifgs=None, config: Configuration = None):
     """
     Wrapper function for calculating MST matrix for a tile
 
@@ -131,7 +131,7 @@ def mst_multiprocessing(tile, ifgs_or_paths, preread_ifgs=None, params=None):
     # computation. To manage memory we need smaller tiles (IfgPart) as number
     # of interferograms increases
 
-    ifg_parts = [IfgPart(p, tile, preread_ifgs, params) for p in ifgs_or_paths]
+    ifg_parts = [IfgPart(p, tile, preread_ifgs, config) for p in ifgs_or_paths]
     return mst_boolean_array(ifg_parts)
 
 
@@ -269,26 +269,26 @@ def _minimum_spanning_edges_from_mst(edges):
     return edges, g_nx
 
 
-def mst_calc_wrapper(params):
+def mst_calc_wrapper(config: Configuration):
     """
     MPI wrapper function for MST calculation
     """
 
     log.info('Calculating minimum spanning tree matrix')
 
-    def _save_mst_tile(tile: Tile, params: dict) -> None:
+    def _save_mst_tile(tile: Tile, config: Configuration) -> None:
         """
         Convenient inner loop for mst tile saving
         """
-        preread_ifgs = params[C.PREREAD_IFGS]
-        dest_tifs = [ifg_path.tmp_sampled_path for ifg_path in params[C.INTERFEROGRAM_FILES]]
-        mst_file_process_n = Configuration.mst_path(params, index=tile.index)
+        preread_ifgs = config.preread_ifgs
+        dest_tifs = [ifg_path.tmp_sampled_path for ifg_path in config.interferogram_files]
+        mst_file_process_n = Configuration.mst_path(config, index=tile.index)
         if mst_file_process_n.exists():
             return
-        mst_tile = mst_multiprocessing(tile, dest_tifs, preread_ifgs, params)
+        mst_tile = mst_multiprocessing(tile, dest_tifs, preread_ifgs, config)
         # locally save the mst_mat
         np.save(file=mst_file_process_n, arr=mst_tile)
 
-    tiles_split(_save_mst_tile, params)
+    tiles_split(_save_mst_tile, config)
 
     log.debug('Finished minimum spanning tree calculation')

@@ -46,7 +46,7 @@ def test_vcm_legacy_vs_mpi(mpisync, tempdir, roipac_or_gamma_conf):
     params[C.OUT_DIR] = tmpdir.joinpath('out')
     params[C.PARALLEL] = 0
     output_conf = Path(tmpdir).joinpath('conf.cfg')
-    pyrate.configuration.write_config_file(params=params, output_conf_file=output_conf)
+    pyrate.configuration.write_config_file(config=params, output_conf_file=output_conf)
     params = configuration.Configuration(output_conf)
 
     # dest_paths = [p.sampled_path for p in params[cf.INTERFEROGRAM_FILES]]

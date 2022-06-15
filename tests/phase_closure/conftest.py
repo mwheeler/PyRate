@@ -1,19 +1,20 @@
 from pathlib import Path
+from pyrate.configuration import Configuration
 import pytest
 from pyrate import constants as C
 from tests.phase_closure.common import IfgDummy
-from tests.common import MEXICO_CROPA_DIR
+from tests.common import MEXICO_CROPA_DIR, TEST_CONF_ROIPAC
 
 
 @pytest.fixture()
 def closure_params(geotiffs):
     ifg_files = [IfgDummy(ifg_path) for ifg_path in geotiffs]
-    params = {
-        C.INTERFEROGRAM_FILES: ifg_files,
-        C.MAX_LOOP_LENGTH: 100,
-        'geotiffs': geotiffs
-    }
-    return params
+    config = Configuration(TEST_CONF_ROIPAC)
+    config.interferogram_files = ifg_files
+    config.max_loop_length = 100
+    config['geotiffs'] = geotiffs
+
+    return config
 
 
 @pytest.fixture(scope='module')
