@@ -22,7 +22,6 @@ import numpy as np
 import networkx as nx
 from pyrate.configuration import Configuration
 from pyrate.core.shared import dem_or_ifg
-import pyrate.constants as C
 from pyrate.core.phase_closure.collect_loops import find_loops, dedupe_loops
 from pyrate.core.logger import pyratelogger as log
 

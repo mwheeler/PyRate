@@ -48,6 +48,7 @@ except ImportError:
 
     class MPI:
         SUM = np.sum
+        UINT16_T = np.uint16
 
     class comm:
         """
@@ -145,17 +146,17 @@ def array_split(arr: Iterable, process: int = None) -> Iterable:
     if MPI_INSTALLED:
         r = process if process else rank
         return np.array_split(np.array(arr, dtype=object), size)[r]
-    else:
-        return np.array(arr)
+
+    return np.array(arr)
 
 
-def sum_vars(x, y, dtype):
+def sum_vars(x, y):
     """Simple wrapper for `numpy.sum()` for usage with MPI"""
     s = np.sum([x, y], axis=0)
     return s
 
 
-def sum_axis_0(x, y, dtype):
+def sum_axis_0(x, y):
     """Simple wrapper for `numpy.sum(numpy.stack())` for usage with MPI"""
     s = np.sum(np.stack((x, y)), axis=0)
     return s

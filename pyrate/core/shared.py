@@ -923,6 +923,8 @@ def write_fullres_geotiff(header, data_path, dest, nodata):
     del ds
 
 
+# pylint: disable=too-many-arguments
+# JUSTIFICATION: This wraps a complicated GDAL process which legitimately has this many options.
 def gdal_dataset(out_fname, columns, rows, driver="GTiff", bands=1,
                  dtype='float32', metadata=None, crs=None,
                  geotransform=None, creation_opts=None):

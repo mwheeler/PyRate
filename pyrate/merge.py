@@ -154,12 +154,19 @@ def create_png_and_kml_from_tif(output_folder_path: str, output_type: str) -> No
     """
     Function to create a preview PNG format image from a geotiff, and a KML file
     """
+    # FIXME: pylint error too-many-locals
+    # This is close to the edge of acceptable to me, but right now i think it's still
+    # readable... but ideally this function should get refactored in the future to split
+    # out bounds discovery / KML generation / stats...
+
     log.info(f'Creating quicklook image for {output_type}')
+
     # open raster and choose band to find min, max
     raster_path = join(output_folder_path, f"{output_type}.tif")
     if not isfile(raster_path):
         raise Exception(f"{output_type}.tif file not found at: " + raster_path)
     gtif = gdal.Open(raster_path)
+
     # find bounds of image
     west, north, east, south = "", "", "", ""
     for line in gdal.Info(gtif).split('\n'):
@@ -167,6 +174,7 @@ def create_png_and_kml_from_tif(output_folder_path: str, output_type: str) -> No
             west, north = line.split(")")[0].split("(")[1].split(",")
         if "Lower Right" in line:
             east, south = line.split(")")[0].split("(")[1].split(",")
+
     # write KML file
     kml_file_path = join(output_folder_path, f"{output_type}.kml")
     kml_file_content = f"""<?xml version="1.0" encoding="UTF-8"?>
@@ -299,7 +307,14 @@ los_projection_divisors = {
 }
 
 
-def __save_merged_files(ifgs_dict, config: Configuration, array, out_type, index=None, savenpy=None):
+def __save_merged_files(
+    ifgs_dict: dict,
+    config: Configuration,
+    array,
+    out_type: str,
+    index: Optional[int] = None,
+    savenpy: bool = False
+):
     """
     Convenience function to save PyRate geotiff and numpy array files
     """

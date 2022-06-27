@@ -40,7 +40,10 @@ def _params_from_conf(config_file):
     return config
 
 
-def update_params_due_to_ifg_selection(config):
+def update_params_due_to_ifg_selection(config: Configuration):
+    """
+    Re-loads filtered ifg files (if they exist) and computes the ifg tiles for them.
+    """
     params = config
     if config.phase_closure_filtered_ifgs_list(params).exists():
         params = config.refresh_ifg_list(params)

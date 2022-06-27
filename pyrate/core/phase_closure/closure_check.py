@@ -19,7 +19,6 @@ from typing import List, Tuple, Any
 from nptyping import NDArray, UInt16, Float32
 import numpy as np
 
-import pyrate.constants as C
 from pyrate.core import mpiops
 from pyrate.core.phase_closure.mst_closure import sort_loops_based_on_weights_and_date, \
     WeightedLoop, Edge

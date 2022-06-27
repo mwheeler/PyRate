@@ -183,6 +183,9 @@ def prepare_ifg(
     :return: out_ds: destination gdal dataset object
     :rtype: gdal.Dataset
     """
+    if crop_opt:
+        raise NotImplementedError("crop_opt option has not been implemented!")
+
     do_multilook = xlooks > 1 or ylooks > 1
     # resolution=None completes faster for non-multilooked layers in gdalwarp
     resolution = [None, None]
@@ -390,7 +393,7 @@ def _check_crop_coords(ifgs, xmin, ymin, xmax, ymax):
         remainder = abs(modf(diff / step)[0])
 
         # handle cases where division gives remainder near zero, or just < 1
-        if (remainder > GRID_TOL) and (remainder < (1 - GRID_TOL)):  # pragma: no cover
+        if GRID_TOL < remainder < (1 - GRID_TOL):  # pragma: no cover
             msg = "%s crop extent not within %s of grid coordinate"
             raise PreprocessError(msg % (par, GRID_TOL))
     i.close()

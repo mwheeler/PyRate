@@ -19,7 +19,6 @@ from typing import List, Dict, Tuple, Any
 from nptyping import NDArray, Float32, UInt16
 import numpy as np
 
-import pyrate.constants as C
 from pyrate.core import mpiops
 from pyrate.core.shared import Ifg, join_dicts
 from pyrate.core.phase_closure.mst_closure import Edge, WeightedLoop
@@ -60,10 +59,13 @@ def __create_ifg_edge_dict(ifg_files: List[str], config: Configuration) -> Dict[
     ret_combined = join_dicts(mpiops.comm.allgather(ret_combined))
     return ret_combined
 
+NP3DArrayF32 = NDArray[(Any, Any, Any), Float32]
+NP1DArrayU16 = NDArray[(Any,), UInt16]
+NP3DArrayU16 = NDArray[(Any, Any, Any), UInt16]
 
 def sum_phase_closures(
     ifg_files: List[str], loops: List[WeightedLoop], config: Configuration
-) -> Tuple[NDArray[(Any, Any, Any), Float32], NDArray[(Any, Any, Any), UInt16], NDArray[(Any,), UInt16]]:
+) -> Tuple[NP3DArrayF32, NP3DArrayU16, NP1DArrayU16]:
     """
     Compute the closure sum for each pixel in each loop, and count the number of times a pixel
     contributes to a failed closure loop (where the summed closure is above/below the
@@ -77,6 +79,10 @@ def sum_phase_closures(
     check (i.e., has unwrapping error) in all loops under investigation.
     num_occurrences_each_ifg: frequency of ifg appearance in all loops.
     """
+    # pylint: disable=too-many-locals
+    # JUSTIFICATION: I can't see a way to simplify this, and splitting it up would make the code
+    # less readable (all the different branches are doing the same thing in different ways).
+
     edge_to_indexed_ifgs = __create_ifg_edge_dict(ifg_files, config)
     ifgs = [v.IfgPhase for v in edge_to_indexed_ifgs.values()]
     n_ifgs = len(ifgs)

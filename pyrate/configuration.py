@@ -125,7 +125,7 @@ class MultiplePaths:
         else:
             filestr = ''
 
-        dir_exists = input_type.value in InputTypes.DIR_MAP.value.keys()
+        dir_exists = input_type.value in InputTypes.DIR_MAP.value
         anchoring_dir = Path(out_dir).joinpath(InputTypes.DIR_MAP.value[input_type.value]) \
             if dir_exists else Path(out_dir)
 
@@ -211,22 +211,26 @@ class Configuration:
 
     :ivar outdir: The PyRate output directory
     """
+    # pylint: disable=too-many-instance-attributes
+    # JUSTIFICATION: This is 'the' configuration class, it intentionally has all of the possible
+    # settings as instance attributes to directly represent the configuration file itself.
+
     outdir: str
     refchipsize: int
 
     # general parameters:
-    
-    #: STR; Name of the DEM header file
+
+    # STR; Name of the DEM header file
     demHeaderFile: str
 
-    #: STR; Name of the file list containing the pool of available header files
+    # STR; Name of the file list containing the pool of available header files
     hdrfilelist: str
 
-    #: STR; Name of the file containing the GAMMA lookup table between lat/lon and
+    # STR; Name of the file containing the GAMMA lookup table between lat/lon and
     # radar coordinates (row/col)
     ltfile: str
 
-    #: (0/1/2); The interferogram processor used (0==ROIPAC, 1==GAMMA, 2: GEOTIF)
+    # (0/1/2); The interferogram processor used (0==ROIPAC, 1==GAMMA, 2: GEOTIF)
     processor: int # TODO: Enum...
 
     # FIXME: Ideally PyRate should use `Path` objects exclusively... but this is a bigger task
@@ -259,38 +263,42 @@ class Configuration:
     # Number of sigma to report velocity error
     velerror_nsig: int
 
-    #: FLOAT; The no data value in the interferogram files.
+    # The no data value in the interferogram files.
     noDataValue: float
     # FIXME: We need to proxy this w/ a python-friendly name...
     noDataAveragingThreshold: float
-    #: BOOL (0/1): Convert no data values to Nan
+    # Convert no data values to Nan
     nan_conversion: bool
 
     cohmask: bool
 
     # reference pixel parameters
-    #: INT; Longitude (decimal degrees) of reference pixel, or if left blank a search will be performed
+    # Longitude (decimal degrees) of reference pixel, or if left blank a search will be performed
     refx: int
     refxfound: int
-    #: INT; Latitude (decimal degrees) of reference pixel, or if left blank a search will be performed
+    # Latitude (decimal degrees) of reference pixel, or if left blank a search will be performed
     refy: int
     refyfound: int
-    #: INT; Number of reference pixel grid search nodes in x dimension
+    # Number of reference pixel grid search nodes in x dimension
     refnx: int
-    #: INT; Number of reference pixel grid search nodes in y dimension
+    # Number of reference pixel grid search nodes in y dimension
     refny: int
-    #: INT; Dimension of reference pixel search window (in number of pixels)
+    # Dimension of reference pixel search window (in number of pixels)
     refchipsize: int
-    #: FLOAT; Minimum fraction of observations required in search window for pixel to be
+    # Minimum fraction of observations required in search window for pixel to be
     # a viable reference pixel
     refminfrac: float
-    #: INT (1/2); Reference phase estimation method
+    # Reference phase estimation method
     # 1: median of the whole interferogram
     # 2: median within the window surrounding the reference pixel)
     refest: int
 
     # FIXME: The following don't seem to be configuration params at all!
     # - they're runtime state... and should live else where.
+    # - I'm not sure when this behaviour started, but it's similar passing global
+    # - variables around with mutable state...
+    #
+    # Examples: refxfound, refyfound, tilesm preread_ifgs
     maxvar: object  # FIXME: ???
     vcmt: object # FIXME: np.ndarray typing...
     preread_ifgs: dict
@@ -307,89 +315,84 @@ class Configuration:
     max_loop_redundancy: int
     subtract_median: bool
 
-    # FIXME: Some of the above aren't actually config paraeters, but mutable runtime state!!!!!
-    # - I'm not sure when this behaviour started, but it's a bit dodgy (akin to passing global variables around)
-    #
-    # Examples: refxfound, refyfound, tilesm preread_ifgs
-
     # Time series parameters
-    #: INT (1/2); Method for time series inversion (1: Laplacian Smoothing; 2: SVD)
+    # INT (1/2); Method for time series inversion (1: Laplacian Smoothing; 2: SVD)
     tsmethod: int  # FIXME: should be an enum
-    #: INT; Number of required input observations per pixel for time series inversion
+    # Number of required input observations per pixel for time series inversion
     ts_pthr: int
-    #: INT (1/2); Order of Laplacian smoothing operator, first or second order
+    # INT (1/2); Order of Laplacian smoothing operator, first or second order
     smorder: int
-    #: FLOAT; Laplacian smoothing factor (values used is 10**smfactor)
+    # Laplacian smoothing factor (values used is 10**smfactor)
     smfactor: float
 
     # Stacking parameters
-    #: FLOAT; Threshold ratio between 'model minus observation' residuals and a-priori observation
+    # Threshold ratio between 'model minus observation' residuals and a-priori observation
     # standard deviations for stacking estimate acceptance
     # (otherwise remove furthest outlier and re-iterate)
     nsig: float
-    #: INT; Number of required observations per pixel for stacking to occur
+    # Number of required observations per pixel for stacking to occur
     pthr: int
-    #: FLOAT; Maximum allowable standard error for pixels in stacking
+    # Maximum allowable standard error for pixels in stacking
     maxsig: float
 
     # APS correction parameters
-    #: BOOL (0/1) Perform APS correction (1: yes, 0: no)
+    # BOOL (0/1) Perform APS correction (1: yes, 0: no)
     apsest: bool
     # temporal low-pass filter parameters
-    #: FLOAT; Cutoff time for gaussian filter in days;
+    # Cutoff time for gaussian filter in days;
     tlpfcutoff: float
-    #: INT; Number of required input observations per pixel for temporal filtering
+    # Number of required input observations per pixel for temporal filtering
     tlpfpthr: int
     # spatially correlated noise low-pass filter parameters
-    #: FLOAT; Cutoff  value for both butterworth and gaussian filters in km
+    # Cutoff  value for both butterworth and gaussian filters in km
     slpfcutoff: float
-    #: INT (1/0); Do spatial interpolation at NaN locations (1 for interpolation, 0 for zero fill)
+    # INT (1/0); Do spatial interpolation at NaN locations (1 for interpolation, 0 for zero fill)
     slpnanfill: int  # FIXME: should be enum
-    #: #: STR; Method for spatial interpolation (one of: linear, nearest, cubic),
+    # # STR; Method for spatial interpolation (one of: linear, nearest, cubic),
     # only used when slpnanfill=1
     slpnanfill_method: str  # FIXME: should be... enum? slpnanfill and slpnanfill_method combined?
 
     # DEM error correction parameters
-    #: BOOL (0/1) Perform DEM error correction (1: yes, 0: no)
+    # BOOL (0/1) Perform DEM error correction (1: yes, 0: no)
     demerror: bool
-    #: INT; Number of required input observations per pixel for DEM error estimation
+    # Number of required input observations per pixel for DEM error estimation
     de_pthr: int
 
     # prepifg params: (TODO: Move into PrepIfgConfiguration?)
 
     ifgcropopt: int  # TODO: Ideally this would be IfgCropOption (requires a bit of refactoring)
-    #: INT; Multi look factor for interferogram preparation in x dimension
+    # Multi look factor for interferogram preparation in x dimension
     ifglksx: int
-    #: INT; Multi look factor for interferogram preparation in y dimension
+    # Multi look factor for interferogram preparation in y dimension
     ifglksy: int
-    #: FLOAT; Coherence threshold for masking
+    # Coherence threshold for masking
     cohthresh: float
-    #: FLOAT; Minimum longitude for cropping with method 3
+    # Minimum longitude for cropping with method 3
     ifgxfirst: float
-    #: FLOAT; Maximum longitude for cropping with method 3
+    # Maximum longitude for cropping with method 3
     ifgyfirst: float
-    #: FLOAT; Minimum latitude for cropping with method 3
+    # Minimum latitude for cropping with method 3
     ifgxlast: float
-    #: FLOAT; Maximum latitude for cropping with method 3
+    # Maximum latitude for cropping with method 3
     ifgylast: float
 
     # orbital error correction/parameters
-    #: BOOL (1/0); Perform orbital error correction (1: yes, 0: no)
+    # Perform orbital error correction (1: yes, 0: no)
     orbfit: bool
-    #: INT (1/2); Method for orbital error correction (1: independent, 2: network)
+    # Method for orbital error correction (1: independent, 2: network)
     orbfitmethod: int  # FIXME: should be an enum...
-    #: INT (1/2/3) Polynomial order of orbital error model
+    # Polynomial order of orbital error model
     # 1: planar in x and y - 2 parameter model
     # 2: quadratic in x and y - 5 parameter model
     # 3: quadratic in x and cubic in y - part-cubic 6 parameter model
     orbfitdegrees: int
-    #: INT; Multi look factor for orbital error calculation in x dimension
+    # Multi look factor for orbital error calculation in x dimension
     orbfitlksx: int
-    #: INT; Multi look factor for orbital error calculation in y dimension
+    # Multi look factor for orbital error calculation in y dimension
     orbfitlksy: int
-    #: BOOL (1/0); Estimate interferogram offsets during orbit correction design matrix (1: yes, 0: no)
+    # Estimate interferogram offsets during orbit correction design matrix (1: yes, 0: no)
     orbfitoffset: bool
-    #: FLOAT; Scaling parameter for orbital correction design matrix
+    # Scaling parameter for orbital correction design matrix
     orbfitscale: float
     orbfitintercept: float
 
@@ -464,7 +467,10 @@ class Configuration:
             raise ValueError("Required configuration parameters: " + str(
                 required.difference(self.__dict__)) + " are missing from input config file.")
 
-        # handle control parameters
+        # Handle control parameters
+        # pylint: disable=consider-using-dict-items
+        # JUSTIFICATION: looks like a PyLint bug (we only want the keys, but if we use .keys() we
+        # get a "consider iterating dict directly", which brings us back to this issue...)
         for parameter_name in PYRATE_DEFAULT_CONFIGURATION:
             param_value = self.__dict__[parameter_name] if parameter_name in required or \
                                                            parameter_name in self.__dict__ else ''
@@ -605,7 +611,7 @@ class Configuration:
 
     def items(self):
         """See __getitem__ / __setitem__ on why we're trying to mimic a dict"""
-        return self.__dict__.items();
+        return self.__dict__.items()
 
     @staticmethod
     def ref_pixel_path(params):

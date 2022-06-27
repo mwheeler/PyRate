@@ -21,7 +21,6 @@ from pathlib import Path
 import re
 import datetime
 
-import pyrate.constants as C
 import pyrate.core.ifgconstants as ifc
 from pyrate.configuration import Configuration
 from pyrate.core.shared import extract_epochs_from_filename
@@ -87,13 +86,13 @@ def parse_date(dstr):
     def to_date(date_str):
         """convert string to datetime"""
         year, month, day = [int(date_str[i:i+2]) for i in range(0, 6, 2)]
-        year += 1900 if ((year <= 99) and (year >= 50)) else 2000
+        year += 1900 if (50 <= year <= 99) else 2000
         return datetime.date(year, month, day)
 
     if "-" in dstr:  # ranged date
-        return tuple([to_date(d) for d in dstr.split("-")])
-    else:
-        return to_date(dstr)
+        return tuple(to_date(d) for d in dstr.split("-"))
+
+    return to_date(dstr)
 
 
 def parse_header(hdr_file):
@@ -111,8 +110,7 @@ def parse_header(hdr_file):
     try:
         lines = [e.split() for e in text.split("\n") if e != ""]
         headers = dict(lines)
-        is_dem = True if DATUM in headers or Z_SCALE in headers \
-                         or PROJECTION in headers else False
+        is_dem = DATUM in headers or Z_SCALE in headers or PROJECTION in headers
         if is_dem and DATUM not in headers:
             msg = 'No "DATUM" parameter in DEM header/resource file'
             raise RoipacException(msg)
@@ -146,7 +144,7 @@ def parse_header(hdr_file):
         subset[ifc.PYRATE_WAVELENGTH_METRES] = headers[WAVELENGTH]
 
         # grab first/second dates from header, or the filename
-        has_dates = True if DATE in headers and DATE12 in headers else False
+        has_dates = DATE in headers and DATE12 in headers
         dates = headers[DATE12] if has_dates else _parse_dates_from(hdr_file)
         subset[ifc.FIRST_DATE], subset[ifc.SECOND_DATE] = dates
 

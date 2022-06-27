@@ -179,38 +179,40 @@ def _time_series_pixel(row, col, b0_mat, sm_factor, sm_order, ifg_data, mst,
     """
     # check pixel for non-redundant ifgs
     sel = np.nonzero(mst[:, row, col])[0]  # trues in mst are chosen
-    if len(sel) >= p_thresh:
-        ifgv = ifg_data[sel, row, col]
-        # make design matrix, b_mat
-        b_mat = b0_mat[sel, :]
-        if interp == 0:
-            # remove rank deficient rows
-            rmrow = asarray([0])  # dummy
-
-            while len(rmrow) > 0:
-                # if b_mat.shape[0] <=1 then we return nans
-                if b_mat.shape[0] > 1:
-                    b_mat, ifgv, sel, rmrow = _remove_rank_def_rows(
-                        b_mat, nvelpar, ifgv, sel)
-                else:
-                    return np.empty(nvelpar) * np.nan
-
-            # Some epochs have been deleted; get valid epoch indices
-            velflag = sum(abs(b_mat), 0)
-            # remove corresponding columns in design matrix
-            b_mat = b_mat[:, ~np.isclose(velflag, 0.0)]
-        else:
-            velflag = np.ones(nvelpar)
-        if method == 1: # Use Laplacian smoothing method
-            tsvel = _solve_ts_lap(nvelpar, velflag, ifgv, b_mat,
-                                  sm_order, sm_factor, sel, vcmt)
-        elif method == 2: # Use SVD method
-            tsvel = _solve_ts_svd(nvelpar, velflag, ifgv, b_mat)
-        else:
-            raise TimeSeriesError("Unrecognised time series method")
-        return tsvel
-    else:
+    if len(sel) < p_thresh:
         return np.empty(nvelpar) * np.nan
+
+    ifgv = ifg_data[sel, row, col]
+    # make design matrix, b_mat
+    b_mat = b0_mat[sel, :]
+    if interp == 0:
+        # remove rank deficient rows
+        rmrow = asarray([0])  # dummy
+
+        while len(rmrow) > 0:
+            # if b_mat.shape[0] <=1 then we return nans
+            if b_mat.shape[0] > 1:
+                b_mat, ifgv, sel, rmrow = _remove_rank_def_rows(
+                    b_mat, nvelpar, ifgv, sel)
+            else:
+                return np.empty(nvelpar) * np.nan
+
+        # Some epochs have been deleted; get valid epoch indices
+        velflag = sum(abs(b_mat), 0)
+        # remove corresponding columns in design matrix
+        b_mat = b_mat[:, ~np.isclose(velflag, 0.0)]
+    else:
+        velflag = np.ones(nvelpar)
+
+    if method == 1: # Use Laplacian smoothing method
+        tsvel = _solve_ts_lap(nvelpar, velflag, ifgv, b_mat,
+                                sm_order, sm_factor, sel, vcmt)
+    elif method == 2: # Use SVD method
+        tsvel = _solve_ts_svd(nvelpar, velflag, ifgv, b_mat)
+    else:
+        raise TimeSeriesError("Unrecognised time series method")
+
+    return tsvel
 
 
 def _solve_ts_svd(nvelpar, velflag, ifgv, b_mat):
@@ -403,7 +405,8 @@ def timeseries_calc_wrapper(config: Configuration):
         log.info('Calculating time series using SVD method')
     if not Configuration.vcmt_path(config).exists():
         raise FileNotFoundError("VCMT is not found on disc. Have you run the 'correct' step?")
-    config.preread_ifgs = cp.load(open(Configuration.preread_ifgs(config), 'rb'))
+    with open(Configuration.preread_ifgs(config), 'rb') as file:
+        config.preread_ifgs = cp.load(file)
     config.vcmt = np.load(Configuration.vcmt_path(config))
     config.tiles = Configuration.get_tiles(config)
     tiles_split(__calc_time_series_for_tile, config)

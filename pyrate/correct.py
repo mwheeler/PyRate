@@ -22,7 +22,6 @@ import os
 from pathlib import Path
 import pickle as cp
 
-import pyrate.constants as C
 from pyrate.core import (shared, algorithm, mpiops)
 from pyrate.core.aps import spatio_temporal_filter
 from pyrate.core.covariance import maxvar_vcm_calc_wrapper
@@ -147,6 +146,11 @@ def main(config: Configuration):
 
 
 def update_params_with_tiles(config: Configuration) -> None:
+    """
+    Computes the interferogram tiles and puts them into the configuration object...
+
+    :param Configuration config: The workflow configuration parameters
+    """
     ifg_path = config.interferogram_files[0].tmp_sampled_path
 
     # FIXME: putting runtime state in 'params' / the config, isn't ideal - "params"
@@ -237,6 +241,12 @@ def correct_ifgs(config: Configuration) -> None:
 
 
 def validate_correct_steps(config: Configuration):
+    """
+    Validates that the correction steps in the workflow configuration are valid,
+    raising a `ConfigException` if they are not.
+
+    :param Configuration config: The workflow configuration parameters
+    """
     for step in config['correct']:
         if step not in correct_steps:
             raise ConfigException(f"{step} is not a supported 'correct' step. \n"

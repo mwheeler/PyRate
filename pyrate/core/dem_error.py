@@ -24,7 +24,6 @@ from os.path import join
 from pathlib import Path
 import numpy as np
 
-import pyrate.constants as C
 from pyrate.core import geometry, shared, mpiops, ifgconstants as ifc
 from pyrate.core.logger import pyratelogger as log
 from pyrate.core.shared import Ifg, Geometry, DEM, Tile, tiles_split

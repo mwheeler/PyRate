@@ -24,7 +24,6 @@ from typing import Tuple, Union
 
 import numpy as np
 
-import pyrate.constants as C
 from pyrate.core import ifgconstants as ifc
 from pyrate.core.gamma import read_lookup_table
 from pyrate.core.shared import Ifg, IfgPart, MemGeometry

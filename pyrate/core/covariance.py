@@ -27,7 +27,6 @@ import numpy as np
 from scipy.fftpack import fft2, ifft2, fftshift
 from scipy.optimize import fmin
 
-import pyrate.constants as C
 from pyrate.core import shared, ifgconstants as ifc, mpiops
 from pyrate.core.shared import PrereadIfg, Ifg
 from pyrate.core.algorithm import first_second_ids

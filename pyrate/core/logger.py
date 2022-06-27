@@ -31,7 +31,9 @@ formatter = logging.Formatter(
 )
 
 def configure_stage_log(verbosity, step_name, log_file_name='pyrate.log.'):
-
+    """
+    Sets subsequent logging calls to be configured for a specific workflow step.
+    """
     timestamp = datetime.now().isoformat()
     log_file_name = run_once(str.__add__, log_file_name, step_name + '.' + timestamp)
 

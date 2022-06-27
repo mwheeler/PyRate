@@ -36,16 +36,23 @@ def plot_closure(
 
     The plots will be saved into the `config.phase_closure_dir` directory.
     """
+    # pylint: disable=too-many-locals
+    # JUSTIFICATION: UI code w/ matlab... this is unavoidable, it's still readiable and splitting
+    # it up would make it harder to understand.
+
     thr = thr * np.pi
     try:
+        # pylint: disable=import-outside-toplevel
+        # JUSTIFICATION: Intentionally doing runtime detection of libs to report human readable
+        # error messages in the case the function is called but dependencies are missing.
         import matplotlib.pyplot as plt
         import matplotlib as mpl
         from mpl_toolkits.axes_grid1 import make_axes_locatable
         cmap = mpl.cm.Spectral
     except ImportError as error:
-        log.warn(ImportError(error))
-        log.warn("Required plotting packages are not found in environment. "
-                 "Closure loop plot will not be generated!!!")
+        log.warning(ImportError(error))
+        log.warning("Required plotting packages are not found in environment. "
+                    "Closure loop plot will not be generated!!!")
         return
 
     _, _, n_loops = closure.shape

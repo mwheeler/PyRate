@@ -24,7 +24,6 @@ from scipy.linalg import solve, cholesky, qr, inv
 from numpy import nan, isnan, sqrt, diag, delete, array, float32
 import numpy as np
 
-import pyrate.constants as C
 from pyrate.core import shared
 from pyrate.core.shared import tiles_split
 from pyrate.core.logger import pyratelogger as log
@@ -129,6 +128,9 @@ def stack_rate_pixel(obs, mst, vcmt, span, nsig, pthresh):
     :return: samples: Number of observations used in the rate estimation for the pixel
     :rtype: int
     """
+    # pylint: disable=too-many-locals
+    # JUSTIFICATION: mathematical code, keeping separate fit-for-purpose locals is more readable.
+
     # find the indices of independent ifgs from MST
     ind = np.nonzero(mst)[0]  # only True's in mst are chosen
     # iterative loop to calculate 'robust' velocity for pixel
@@ -197,7 +199,10 @@ def stack_calc_wrapper(config: Configuration):
     log.info('Calculating rate map via stacking')
     if not Configuration.vcmt_path(config).exists():
         raise FileNotFoundError("VCMT is not found on disc. Have you run the 'correct' step?")
-    config.preread_ifgs = cp.load(open(Configuration.preread_ifgs(config), 'rb'))
+
+    with open(Configuration.preread_ifgs(config), 'rb') as file:
+        config.preread_ifgs = cp.load(file)
+
     config.vcmt = np.load(Configuration.vcmt_path(config))
     config.tiles = Configuration.get_tiles(config)
     tiles_split(_stacking_for_tile, config)

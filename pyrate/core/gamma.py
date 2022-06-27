@@ -25,10 +25,9 @@ from datetime import date, time, timedelta
 import struct
 import numpy as np
 
-import pyrate.constants as C
 from pyrate.configuration import ConfigException, Configuration, parse_namelist
 import pyrate.core.ifgconstants as ifc
-from pyrate.constants import sixteen_digits_pattern, BASELINE_FILE_PATHS, BASE_FILE_DIR
+from pyrate.constants import sixteen_digits_pattern, BASE_FILE_DIR
 from pyrate.core.shared import extract_epochs_from_filename, data_format
 from pyrate.core.logger import pyratelogger as log
 

@@ -32,7 +32,7 @@ unsafe-load-any-extension=no
 # A comma-separated list of package or module names from where C extensions may
 # be loaded. Extensions are loading into the active Python interpreter and may
 # run arbitrary code
-extension-pkg-whitelist=
+extension-pkg-allow-list=mpi4py
 
 # Allow optimization of some AST trees. This will activate a peephole AST
 # optimizer, which will apply various small optimizations. For instance, it can
@@ -186,7 +186,7 @@ redefining-builtins-modules=six.moves,future.builtins
 [SIMILARITIES]
 
 # Minimum lines number of a similarity.
-min-similarity-lines=4
+min-similarity-lines=6
 
 # Ignore comments when computing similarities.
 ignore-comments=yes
@@ -351,7 +351,9 @@ max-statements=50
 max-parents=7
 
 # Maximum number of attributes for a class (see R0902).
-max-attributes=7
+# JUSTIFICATION: We have classes involving mathematical coefficients & processing parameters,
+# naturally we have data classes that rightly have up to a dozen attributes or more sometimes.
+max-attributes=16
 
 # Minimum number of public methods for a class (see R0903).
 min-public-methods=2

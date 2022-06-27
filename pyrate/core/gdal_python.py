@@ -182,6 +182,10 @@ def crop_resample_average(
     :return: out_ds: destination gdal dataset object
     :rtype: gdal.Dataset
     """
+    # pylint: disable=too-many-branches
+    # JUSTIFICATION: This rule is only triggered due to this switch-like statement below,
+    # I think this is fine for now (if it grows too big we can use a lookup table instead).
+
     dst_ds, _, _, _ = _crop_resample_setup(extents, input_tif, new_res, output_file,
                                            out_bands=2, dst_driver_type='MEM')
 

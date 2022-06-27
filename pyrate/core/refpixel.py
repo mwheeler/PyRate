@@ -172,7 +172,7 @@ def ref_pixel(ifgs, config: Configuration):
     :rtype: tuple
     """
     half_patch_size, thresh, grid = ref_pixel_setup(ifgs, config)
-    
+
     if config.parallel:
         phase_data = [i.phase_data for i in ifgs]
         mean_sds = Parallel(n_jobs=config.processes,
